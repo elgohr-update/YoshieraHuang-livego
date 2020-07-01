@@ -18,7 +18,7 @@ type Server struct {
 
 type stream struct {
 	Key string `json:"key"`
-	Id  string `json:"id"`
+	ID  string `json:"id"`
 }
 
 type streams struct {
@@ -112,18 +112,18 @@ func (server *Server) handleConn(w http.ResponseWriter, r *http.Request) {
 	if msgs == nil || len(msgs.Publishers) == 0 {
 		http.Error(w, "invalid path", http.StatusNotFound)
 		return
-	} else {
-		include := false
-		for _, item := range msgs.Publishers {
-			if item.Key == path {
-				include = true
-				break
-			}
+	}
+
+	include := false
+	for _, item := range msgs.Publishers {
+		if item.Key == path {
+			include = true
+			break
 		}
-		if include == false {
-			http.Error(w, "invalid path", http.StatusNotFound)
-			return
-		}
+	}
+	if include == false {
+		http.Error(w, "invalid path", http.StatusNotFound)
+		return
 	}
 
 	w.Header().Set("Access-Control-Allow-Origin", "*")

@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-type RWBaser struct {
+type RWBase struct {
 	lock               sync.Mutex
 	timeout            time.Duration
 	PreTime            time.Time
@@ -14,18 +14,18 @@ type RWBaser struct {
 	LastAudioTimestamp uint32
 }
 
-func NewRWBaser(duration time.Duration) RWBaser {
-	return RWBaser{
+func NewRWBase(duration time.Duration) RWBase {
+	return RWBase{
 		timeout: duration,
 		PreTime: time.Now(),
 	}
 }
 
-func (rw *RWBaser) BaseTimeStamp() uint32 {
+func (rw *RWBase) BaseTimeStamp() uint32 {
 	return rw.BaseTimestamp
 }
 
-func (rw *RWBaser) CalcBaseTimestamp() {
+func (rw *RWBase) CalcBaseTimestamp() {
 	if rw.LastAudioTimestamp > rw.LastVideoTimestamp {
 		rw.BaseTimestamp = rw.LastAudioTimestamp
 	} else {
@@ -33,7 +33,7 @@ func (rw *RWBaser) CalcBaseTimestamp() {
 	}
 }
 
-func (rw *RWBaser) RecTimeStamp(timestamp, typeID uint32) {
+func (rw *RWBase) RecTimeStamp(timestamp, typeID uint32) {
 	if typeID == TAG_VIDEO {
 		rw.LastVideoTimestamp = timestamp
 	} else if typeID == TAG_AUDIO {
@@ -41,13 +41,13 @@ func (rw *RWBaser) RecTimeStamp(timestamp, typeID uint32) {
 	}
 }
 
-func (rw *RWBaser) SetPreTime() {
+func (rw *RWBase) SetPreTime() {
 	rw.lock.Lock()
 	rw.PreTime = time.Now()
 	rw.lock.Unlock()
 }
 
-func (rw *RWBaser) Alive() bool {
+func (rw *RWBase) Alive() bool {
 	rw.lock.Lock()
 	b := !(time.Now().Sub(rw.PreTime) >= rw.timeout)
 	rw.lock.Unlock()

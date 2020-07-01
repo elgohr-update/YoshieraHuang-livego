@@ -19,8 +19,8 @@ import (
 )
 
 const (
-	maxQueueNum           = 1024
-	SAVE_STATICS_INTERVAL = 5000
+	maxQueueNum         = 1024
+	SaveStaticsInterval = 5000
 )
 
 var (
@@ -179,9 +179,10 @@ type StaticsBW struct {
 }
 
 type VirWriter struct {
-	Uid    string
-	closed bool
-	av.RWBaser
+	av.RWBase
+
+	UID         string
+	closed      bool
 	conn        StreamReadWriteCloser
 	packetQueue chan *av.Packet
 	WriteBWInfo StaticsBW
@@ -189,9 +190,10 @@ type VirWriter struct {
 
 func NewVirWriter(conn StreamReadWriteCloser) *VirWriter {
 	ret := &VirWriter{
-		Uid:         uid.NewId(),
+		RWBase: av.NewRWBase(time.Second * time.Duration(writeTimeout)),
+
+		UID:         uid.NewId(),
 		conn:        conn,
-		RWBaser:     av.NewRWBaser(time.Second * time.Duration(writeTimeout)),
 		packetQueue: make(chan *av.Packet, maxQueueNum),
 		WriteBWInfo: StaticsBW{0, 0, 0, 0, 0, 0, 0, 0},
 	}
@@ -218,7 +220,7 @@ func (v *VirWriter) SaveStatics(streamid uint32, length uint64, isVideoFlag bool
 
 	if v.WriteBWInfo.LastTimestamp == 0 {
 		v.WriteBWInfo.LastTimestamp = nowInMS
-	} else if (nowInMS - v.WriteBWInfo.LastTimestamp) >= SAVE_STATICS_INTERVAL {
+	} else if (nowInMS - v.WriteBWInfo.LastTimestamp) >= SaveStaticsInterval {
 		diffTimestamp := (nowInMS - v.WriteBWInfo.LastTimestamp) / 1000
 
 		v.WriteBWInfo.VideoSpeedInBytesperMS = (v.WriteBWInfo.VideoDatainBytes - v.WriteBWInfo.LastVideoDatainBytes) * 8 / uint64(diffTimestamp) / 1000
@@ -329,11 +331,11 @@ func (v *VirWriter) SendPacket() error {
 		}
 
 	}
-	return nil
+
 }
 
 func (v *VirWriter) Info() (ret av.Info) {
-	ret.UID = v.Uid
+	ret.UID = v.UID
 	_, _, URL := v.conn.GetInfo()
 	ret.URL = URL
 	_url, err := url.Parse(URL)
@@ -355,18 +357,20 @@ func (v *VirWriter) Close(err error) {
 }
 
 type VirReader struct {
-	Uid string
-	av.RWBaser
-	demuxer    *flv.Demuxer
+	av.RWBase
+
+	UID        string
+	demuxer    flv.Demuxer
 	conn       StreamReadWriteCloser
 	ReadBWInfo StaticsBW
 }
 
 func NewVirReader(conn StreamReadWriteCloser) *VirReader {
 	return &VirReader{
-		Uid:        uid.NewId(),
+		RWBase: av.NewRWBase(time.Second * time.Duration(writeTimeout)),
+
+		UID:        uid.NewId(),
 		conn:       conn,
-		RWBaser:    av.NewRWBaser(time.Second * time.Duration(writeTimeout)),
 		demuxer:    flv.NewDemuxer(),
 		ReadBWInfo: StaticsBW{0, 0, 0, 0, 0, 0, 0, 0},
 	}
@@ -384,7 +388,7 @@ func (v *VirReader) SaveStatics(streamid uint32, length uint64, isVideoFlag bool
 
 	if v.ReadBWInfo.LastTimestamp == 0 {
 		v.ReadBWInfo.LastTimestamp = nowInMS
-	} else if (nowInMS - v.ReadBWInfo.LastTimestamp) >= SAVE_STATICS_INTERVAL {
+	} else if (nowInMS - v.ReadBWInfo.LastTimestamp) >= SaveStaticsInterval {
 		diffTimestamp := (nowInMS - v.ReadBWInfo.LastTimestamp) / 1000
 
 		//log.Printf("now=%d, last=%d, diff=%d", nowInMS, v.ReadBWInfo.LastTimestamp, diffTimestamp)
@@ -432,7 +436,7 @@ func (v *VirReader) Read(p *av.Packet) (err error) {
 }
 
 func (v *VirReader) Info() (ret av.Info) {
-	ret.UID = v.Uid
+	ret.UID = v.UID
 	_, _, URL := v.conn.GetInfo()
 	ret.URL = URL
 	_url, err := url.Parse(URL)

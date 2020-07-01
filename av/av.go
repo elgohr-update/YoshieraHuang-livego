@@ -112,7 +112,7 @@ type Handler interface {
 	HandleWriter(WriteCloser)
 }
 
-type Alive interface {
+type Aliver interface {
 	Alive() bool
 }
 
@@ -143,13 +143,13 @@ func (info Info) String() string {
 
 type ReadCloser interface {
 	Closer
-	Alive
+	Aliver
 	Read(*Packet) error
 }
 
 type WriteCloser interface {
 	Closer
-	Alive
+	Aliver
 	CalcTime
 	Write(*Packet) error
 }

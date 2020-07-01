@@ -3,8 +3,9 @@ package hls
 import (
 	"bytes"
 	"fmt"
-	"github.com/gwuhaolin/livego/configure"
 	"time"
+
+	"github.com/gwuhaolin/livego/configure"
 
 	"github.com/gwuhaolin/livego/av"
 	"github.com/gwuhaolin/livego/container/flv"
@@ -23,12 +24,13 @@ const (
 )
 
 type Source struct {
-	av.RWBaser
+	av.RWBase
+
 	seq         int
 	info        av.Info
 	bwriter     *bytes.Buffer
 	btswriter   *bytes.Buffer
-	demuxer     *flv.Demuxer
+	demuxer     flv.Demuxer
 	muxer       *ts.Muxer
 	pts, dts    uint64
 	stat        *status
@@ -43,10 +45,11 @@ type Source struct {
 func NewSource(info av.Info) *Source {
 	info.Inter = true
 	s := &Source{
+		RWBase: av.NewRWBase(time.Second * 10),
+
 		info:        info,
 		align:       &align{},
 		stat:        newStatus(),
-		RWBaser:     av.NewRWBaser(time.Second * 10),
 		cache:       newAudioCache(),
 		demuxer:     flv.NewDemuxer(),
 		muxer:       ts.NewMuxer(),

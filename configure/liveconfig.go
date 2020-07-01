@@ -84,8 +84,6 @@ func initLog() {
 }
 
 func init() {
-	defer Init()
-
 	// Default config
 	b, _ := json.Marshal(defaultConf)
 	defaultConfig := bytes.NewReader(b)

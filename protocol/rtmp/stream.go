@@ -342,10 +342,10 @@ func (s *Stream) TransStart() {
 				}
 				v.init = true
 			} else {
-				new_packet := p
+				newPacket := p
 				//writeType := reflect.TypeOf(v.w)
 				//log.Debugf("w.Write: type=%v, %v", writeType, v.w.Info())
-				if err = v.w.Write(&new_packet); err != nil {
+				if err = v.w.Write(&newPacket); err != nil {
 					log.Debugf("[%s] write packet error: %v, remove", v.w.Info(), err)
 					s.ws.Remove(item.Key)
 				}

@@ -2,6 +2,7 @@ package flv
 
 import (
 	"fmt"
+
 	"github.com/gwuhaolin/livego/av"
 )
 
@@ -9,14 +10,19 @@ var (
 	ErrAvcEndSEQ = fmt.Errorf("avc end sequence")
 )
 
-type Demuxer struct {
+type Demuxer interface {
+	DemuxH(p *av.Packet) error
+	Demux(p *av.Packet) error
 }
 
-func NewDemuxer() *Demuxer {
-	return &Demuxer{}
+type demuxer struct {
 }
 
-func (d *Demuxer) DemuxH(p *av.Packet) error {
+func NewDemuxer() Demuxer {
+	return &demuxer{}
+}
+
+func (d *demuxer) DemuxH(p *av.Packet) error {
 	var tag Tag
 	_, err := tag.ParseMediaTagHeader(p.Data, p.IsVideo)
 	if err != nil {
@@ -27,7 +33,7 @@ func (d *Demuxer) DemuxH(p *av.Packet) error {
 	return nil
 }
 
-func (d *Demuxer) Demux(p *av.Packet) error {
+func (d *demuxer) Demux(p *av.Packet) error {
 	var tag Tag
 	n, err := tag.ParseMediaTagHeader(p.Data, p.IsVideo)
 	if err != nil {

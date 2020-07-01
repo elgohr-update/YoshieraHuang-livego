@@ -50,8 +50,9 @@ const (
 )
 
 type FLVWriter struct {
-	Uid string
-	av.RWBaser
+	av.RWBase
+
+	UID             string
 	app, title, url string
 	buf             []byte
 	closed          chan struct{}
@@ -60,14 +61,14 @@ type FLVWriter struct {
 
 func NewFLVWriter(app, title, url string, ctx *os.File) *FLVWriter {
 	ret := &FLVWriter{
-		Uid:     uid.NewId(),
-		app:     app,
-		title:   title,
-		url:     url,
-		ctx:     ctx,
-		RWBaser: av.NewRWBaser(time.Second * 10),
-		closed:  make(chan struct{}),
-		buf:     make([]byte, headerLen),
+		UID:    uid.NewId(),
+		app:    app,
+		title:  title,
+		url:    url,
+		ctx:    ctx,
+		RWBase: av.NewRWBase(time.Second * 10),
+		closed: make(chan struct{}),
+		buf:    make([]byte, headerLen),
 	}
 
 	ret.ctx.Write(flvHeader)
@@ -78,7 +79,7 @@ func NewFLVWriter(app, title, url string, ctx *os.File) *FLVWriter {
 }
 
 func (writer *FLVWriter) Write(p *av.Packet) error {
-	writer.RWBaser.SetPreTime()
+	writer.SetPreTime()
 	h := writer.buf[:headerLen]
 	typeID := av.TAG_VIDEO
 	if !p.IsVideo {
@@ -96,7 +97,7 @@ func (writer *FLVWriter) Write(p *av.Packet) error {
 	dataLen := len(p.Data)
 	timestamp := p.TimeStamp
 	timestamp += writer.BaseTimeStamp()
-	writer.RWBaser.RecTimeStamp(timestamp, uint32(typeID))
+	writer.RecTimeStamp(timestamp, uint32(typeID))
 
 	preDataLen := dataLen + headerLen
 	timestampbase := timestamp & 0xffffff
@@ -136,7 +137,7 @@ func (writer *FLVWriter) Close(error) {
 }
 
 func (writer *FLVWriter) Info() (ret av.Info) {
-	ret.UID = writer.Uid
+	ret.UID = writer.UID
 	ret.URL = writer.url
 	ret.Key = writer.app + "/" + writer.title
 	return
