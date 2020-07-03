@@ -9,16 +9,17 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// RoomKeysType is a
+// RoomKeysType is a storage for room channel name and key
 type RoomKeysType struct {
 	localCache *cache.Cache
 }
 
+// RoomKeys storages room channel and key
 var RoomKeys = &RoomKeysType{
 	localCache: cache.New(cache.NoExpiration, 0),
 }
 
-// set/reset a random key for channel
+// SetKey set a random key for channel
 func (r *RoomKeysType) SetKey(channel string) (key string, err error) {
 	for {
 		key = uid.RandStringRunes(48)
@@ -31,6 +32,7 @@ func (r *RoomKeysType) SetKey(channel string) (key string, err error) {
 	return
 }
 
+// GetKey get a key for channel
 func (r *RoomKeysType) GetKey(channel string) (newKey string, err error) {
 	var key interface{}
 	var found bool
@@ -42,15 +44,17 @@ func (r *RoomKeysType) GetKey(channel string) (newKey string, err error) {
 	return
 }
 
+// GetChannel get channel name by key
 func (r *RoomKeysType) GetChannel(key string) (channel string, err error) {
 	chann, found := r.localCache.Get(key)
 	if found {
 		return chann.(string), nil
-	} else {
-		return "", fmt.Errorf("%s does not exists", key)
 	}
+
+	return "", fmt.Errorf("%s does not exists", key)
 }
 
+// DeleteChannel delete channel
 func (r *RoomKeysType) DeleteChannel(channel string) bool {
 	key, ok := r.localCache.Get(channel)
 	if ok {
@@ -61,8 +65,8 @@ func (r *RoomKeysType) DeleteChannel(channel string) bool {
 	return false
 }
 
+// DeleteKey delete key
 func (r *RoomKeysType) DeleteKey(key string) bool {
-
 	channel, ok := r.localCache.Get(key)
 	if ok {
 		r.localCache.Delete(channel.(string))

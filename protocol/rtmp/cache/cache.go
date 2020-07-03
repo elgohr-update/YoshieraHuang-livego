@@ -5,6 +5,7 @@ import (
 	"github.com/gwuhaolin/livego/configure"
 )
 
+// Cache is a cache of rtmp
 type Cache struct {
 	gop      *GopCache
 	videoSeq *SpecialCache
@@ -12,6 +13,7 @@ type Cache struct {
 	metadata *SpecialCache
 }
 
+// NewCache returns a Cache
 func NewCache() *Cache {
 	return &Cache{
 		gop:      NewGopCache(configure.Config.GetInt("gop_num")),
@@ -21,39 +23,36 @@ func NewCache() *Cache {
 	}
 }
 
+// Write writes packet
 func (cache *Cache) Write(p av.Packet) {
 	if p.IsMetadata {
 		cache.metadata.Write(&p)
 		return
+	}
+
+	if !p.IsVideo {
+		ah, ok := p.Header.(av.AudioPacketHeader)
+		if ok {
+			if ah.SoundFormat() == av.SoundAAC &&
+				ah.AACPacketType() == av.AACSeqHeader {
+				cache.audioSeq.Write(&p)
+			}
+			return
+		}
 	} else {
-		if !p.IsVideo {
-			ah, ok := p.Header.(av.AudioPacketHeader)
-			if ok {
-				if ah.SoundFormat() == av.SOUND_AAC &&
-					ah.AACPacketType() == av.AAC_SEQHDR {
-					cache.audioSeq.Write(&p)
-					return
-				} else {
-					return
-				}
+		vh, ok := p.Header.(av.VideoPacketHeader)
+		if ok {
+			if vh.IsSeq() {
+				cache.videoSeq.Write(&p)
 			}
-
-		} else {
-			vh, ok := p.Header.(av.VideoPacketHeader)
-			if ok {
-				if vh.IsSeq() {
-					cache.videoSeq.Write(&p)
-					return
-				}
-			} else {
-				return
-			}
-
+			return
 		}
 	}
+
 	cache.gop.Write(&p)
 }
 
+// Send send the packets to WriteCloser
 func (cache *Cache) Send(w av.WriteCloser) error {
 	if err := cache.metadata.Send(w); err != nil {
 		return err

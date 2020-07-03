@@ -23,6 +23,7 @@ func (d *Decoder) decodeAbstractMessage(r io.Reader) (result Object, err error) 
 func (d *Decoder) decodeAsyncMessageExt(r io.Reader) (result Object, err error) {
 	return d.decodeAsyncMessage(r)
 }
+
 func (d *Decoder) decodeAsyncMessage(r io.Reader) (result Object, err error) {
 	result, err = d.decodeAbstractMessage(r)
 	if err != nil {

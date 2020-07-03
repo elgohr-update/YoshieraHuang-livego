@@ -5,51 +5,72 @@ import (
 	"time"
 )
 
+// RWBaser is the base for reader and writer
+type RWBaser interface {
+	Aliver
+
+	BaseTimestamp() uint32
+	CalcBaseTimestamp()
+	RecTimestamp(timestamp, typeID uint32)
+	SetPreTime()
+}
+
+// RWBase is the base for reader and writer
 type RWBase struct {
-	lock               sync.Mutex
-	timeout            time.Duration
-	PreTime            time.Time
-	BaseTimestamp      uint32
-	LastVideoTimestamp uint32
-	LastAudioTimestamp uint32
+	lock    sync.Mutex
+	timeout time.Duration
+
+	preTime time.Time
+	// baseTimestamp is the base timestamp
+	baseTimestamp uint32
+	// lastVideoTimestamp is the last video timestamp
+	lastVideoTimestamp uint32
+	// lastAudioTimestamp is the last audio timestamp
+	lastAudioTimestamp uint32
 }
 
-func NewRWBase(duration time.Duration) RWBase {
-	return RWBase{
+// NewRWBase returns a RWBaser
+func NewRWBase(duration time.Duration) RWBaser {
+	return &RWBase{
 		timeout: duration,
-		PreTime: time.Now(),
+		preTime: time.Now(),
 	}
 }
 
-func (rw *RWBase) BaseTimeStamp() uint32 {
-	return rw.BaseTimestamp
+// BaseTimestamp return the base timestamp
+func (rw *RWBase) BaseTimestamp() uint32 {
+	return rw.baseTimestamp
 }
 
+// CalcBaseTimestamp calculates the base timestamp
 func (rw *RWBase) CalcBaseTimestamp() {
-	if rw.LastAudioTimestamp > rw.LastVideoTimestamp {
-		rw.BaseTimestamp = rw.LastAudioTimestamp
+	if rw.lastAudioTimestamp > rw.lastVideoTimestamp {
+		rw.baseTimestamp = rw.lastAudioTimestamp
 	} else {
-		rw.BaseTimestamp = rw.LastVideoTimestamp
+		rw.baseTimestamp = rw.lastVideoTimestamp
 	}
 }
 
-func (rw *RWBase) RecTimeStamp(timestamp, typeID uint32) {
-	if typeID == TAG_VIDEO {
-		rw.LastVideoTimestamp = timestamp
-	} else if typeID == TAG_AUDIO {
-		rw.LastAudioTimestamp = timestamp
+// RecTimestamp record the timestamp according to type
+func (rw *RWBase) RecTimestamp(timestamp, typeID uint32) {
+	if typeID == TagVideo {
+		rw.lastVideoTimestamp = timestamp
+	} else if typeID == TagAudio {
+		rw.lastAudioTimestamp = timestamp
 	}
 }
 
+// SetPreTime set the pre time
 func (rw *RWBase) SetPreTime() {
 	rw.lock.Lock()
-	rw.PreTime = time.Now()
+	rw.preTime = time.Now()
 	rw.lock.Unlock()
 }
 
+// Alive returns if this is alive
 func (rw *RWBase) Alive() bool {
 	rw.lock.Lock()
-	b := !(time.Now().Sub(rw.PreTime) >= rw.timeout)
+	b := !(time.Now().Sub(rw.preTime) >= rw.timeout)
 	rw.lock.Unlock()
 	return b
 }

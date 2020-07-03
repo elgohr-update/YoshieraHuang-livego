@@ -7,11 +7,13 @@ import (
 	"github.com/gwuhaolin/livego/av"
 )
 
+// mpegExtension is the extension of mpeg
 type mpegExtension struct {
 	objectType byte
 	sampleRate byte
 }
 
+// mpegCfgInfo is the mpeg configuration information
 type mpegCfgInfo struct {
 	objectType     byte
 	sampleRate     byte
@@ -26,20 +28,24 @@ type mpegCfgInfo struct {
 var aacRates = []int{96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000, 7350}
 
 var (
-	specificBufInvalid = fmt.Errorf("audio mpegspecific error")
-	audioBufInvalid    = fmt.Errorf("audiodata  invalid")
+	// ErrInvalidSpecificBuff means audio mpeg specific
+	ErrInvalidSpecificBuff = fmt.Errorf("invalid audio mpegspecific")
+	// ErrInvalidAudioBuff means audio data invalid
+	ErrInvalidAudioBuff = fmt.Errorf("invalid audiodata")
 )
 
 const (
 	adtsHeaderLen = 7
 )
 
+// Parser is the AAC parser
 type Parser struct {
 	gettedSpecific bool
 	adtsHeader     []byte
 	cfgInfo        *mpegCfgInfo
 }
 
+// NewParser returns a parser
 func NewParser() *Parser {
 	return &Parser{
 		gettedSpecific: false,
@@ -50,7 +56,7 @@ func NewParser() *Parser {
 
 func (parser *Parser) specificInfo(src []byte) error {
 	if len(src) < 2 {
-		return specificBufInvalid
+		return ErrInvalidSpecificBuff
 	}
 	parser.gettedSpecific = true
 	parser.cfgInfo.objectType = (src[0] >> 3) & 0xff
@@ -61,7 +67,7 @@ func (parser *Parser) specificInfo(src []byte) error {
 
 func (parser *Parser) adts(src []byte, w io.Writer) error {
 	if len(src) <= 0 || !parser.gettedSpecific {
-		return audioBufInvalid
+		return ErrInvalidAudioBuff
 	}
 
 	frameLen := uint16(len(src)) + 7
@@ -95,6 +101,7 @@ func (parser *Parser) adts(src []byte, w io.Writer) error {
 	return nil
 }
 
+// SampleRate return the sample rate
 func (parser *Parser) SampleRate() int {
 	rate := 44100
 	if parser.cfgInfo.sampleRate <= byte(len(aacRates)-1) {
@@ -103,11 +110,12 @@ func (parser *Parser) SampleRate() int {
 	return rate
 }
 
+// Parse parse the packet
 func (parser *Parser) Parse(b []byte, packetType uint8, w io.Writer) (err error) {
 	switch packetType {
-	case av.AAC_SEQHDR:
+	case av.AACSeqHeader:
 		err = parser.specificInfo(b)
-	case av.AAC_RAW:
+	case av.AACRaw:
 		err = parser.adts(b, w)
 	}
 	return

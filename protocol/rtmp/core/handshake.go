@@ -97,6 +97,7 @@ func hsCreate2(p []byte, key []byte) {
 	copy(p[gap:], digest)
 }
 
+// HandshakeClient does handshaking to client
 func (conn *Conn) HandshakeClient() (err error) {
 	var random [(1 + 1536*2) * 2]byte
 
@@ -140,6 +141,7 @@ func (conn *Conn) HandshakeClient() (err error) {
 	return
 }
 
+// HandshakeServer does handshaking to server
 func (conn *Conn) HandshakeServer() (err error) {
 	var random [(1 + 1536*2) * 2]byte
 

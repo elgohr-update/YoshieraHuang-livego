@@ -11,22 +11,26 @@ import (
 )
 
 var (
-	errNoAudio = fmt.Errorf("demuxer no audio")
+	// ErrNoAudioDemuxer means no audio in demuxer
+	ErrNoAudioDemuxer = fmt.Errorf("no audio in demuxer")
 )
 
+// CodecParser is a parser that can decode aac, mp3 or h264
 type CodecParser struct {
 	aac  *aac.Parser
 	mp3  *mp3.Parser
 	h264 *h264.Parser
 }
 
+// NewCodecParser returns a CodecParser
 func NewCodecParser() *CodecParser {
 	return &CodecParser{}
 }
 
+// SampleRate returns the sample rate
 func (codeParser *CodecParser) SampleRate() (int, error) {
 	if codeParser.aac == nil && codeParser.mp3 == nil {
-		return 0, errNoAudio
+		return 0, ErrNoAudioDemuxer
 	}
 	if codeParser.aac != nil {
 		return codeParser.aac.SampleRate(), nil
@@ -34,13 +38,14 @@ func (codeParser *CodecParser) SampleRate() (int, error) {
 	return codeParser.mp3.SampleRate(), nil
 }
 
+// Parse parses the packet to writer
 func (codeParser *CodecParser) Parse(p *av.Packet, w io.Writer) (err error) {
 
 	switch p.IsVideo {
 	case true:
 		f, ok := p.Header.(av.VideoPacketHeader)
 		if ok {
-			if f.CodecID() == av.VIDEO_H264 {
+			if f.CodecID() == av.VideoH264 {
 				if codeParser.h264 == nil {
 					codeParser.h264 = h264.NewParser()
 				}
@@ -51,12 +56,12 @@ func (codeParser *CodecParser) Parse(p *av.Packet, w io.Writer) (err error) {
 		f, ok := p.Header.(av.AudioPacketHeader)
 		if ok {
 			switch f.SoundFormat() {
-			case av.SOUND_AAC:
+			case av.SoundAAC:
 				if codeParser.aac == nil {
 					codeParser.aac = aac.NewParser()
 				}
 				err = codeParser.aac.Parse(p.Data, f.AACPacketType(), w)
-			case av.SOUND_MP3:
+			case av.SoundMP3:
 				if codeParser.mp3 == nil {
 					codeParser.mp3 = mp3.NewParser()
 				}

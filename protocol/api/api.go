@@ -16,44 +16,48 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// Response contains ResponseWriter, status and data
 type Response struct {
 	w      http.ResponseWriter
 	Status int         `json:"status"`
 	Data   interface{} `json:"data"`
 }
 
-func (r *Response) SendJson() (int, error) {
+// SendJSON send json data as response with status
+func (r *Response) SendJSON() (int, error) {
 	resp, _ := json.Marshal(r)
 	r.w.Header().Set("Content-Type", "application/json")
 	r.w.WriteHeader(r.Status)
 	return r.w.Write(resp)
 }
 
-type Operation struct {
-	Method string `json:"method"`
-	URL    string `json:"url"`
-	Stop   bool   `json:"stop"`
-}
+// type Operation struct {
+// 	Method string `json:"method"`
+// 	URL    string `json:"url"`
+// 	Stop   bool   `json:"stop"`
+// }
 
-type OperationChange struct {
-	Method    string `json:"method"`
-	SourceURL string `json:"source_url"`
-	TargetURL string `json:"target_url"`
-	Stop      bool   `json:"stop"`
-}
+// type OperationChange struct {
+// 	Method    string `json:"method"`
+// 	SourceURL string `json:"source_url"`
+// 	TargetURL string `json:"target_url"`
+// 	Stop      bool   `json:"stop"`
+// }
 
-type ClientInfo struct {
-	url              string
-	rtmpRemoteClient *rtmp.Client
-	rtmpLocalClient  *rtmp.Client
-}
+// type ClientInfo struct {
+// 	url              string
+// 	rtmpRemoteClient *rtmp.Client
+// 	rtmpLocalClient  *rtmp.Client
+// }
 
+// Server serve the http api
 type Server struct {
 	handler  av.Handler
 	session  map[string]*rtmprelay.RtmpRelay
 	rtmpAddr string
 }
 
+// NewServer return a new Server
 func NewServer(h av.Handler, rtmpAddr string) *Server {
 	return &Server{
 		handler:  h,
@@ -62,6 +66,8 @@ func NewServer(h av.Handler, rtmpAddr string) *Server {
 	}
 }
 
+// JWTMiddleware is a jwt middleware
+// If jwt.secret is specified in config, this middleware will be activated.
 func JWTMiddleware(next http.Handler) http.Handler {
 	isJWT := len(configure.Config.GetString("jwt.secret")) > 0
 	if !isJWT {
@@ -92,7 +98,7 @@ func JWTMiddleware(next http.Handler) http.Handler {
 					Status: 403,
 					Data:   err,
 				}
-				res.SendJson()
+				res.SendJSON()
 			},
 		})
 
@@ -100,37 +106,27 @@ func JWTMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+// Serve serves http request
 func (s *Server) Serve(l net.Listener) error {
 	mux := http.NewServeMux()
 
+	// static server
 	mux.Handle("/statics/", http.StripPrefix("/statics/", http.FileServer(http.Dir("statics"))))
 
-	mux.HandleFunc("/control/push", func(w http.ResponseWriter, r *http.Request) {
-		s.handlePush(w, r)
-	})
-	mux.HandleFunc("/control/pull", func(w http.ResponseWriter, r *http.Request) {
-		s.handlePull(w, r)
-	})
-	mux.HandleFunc("/control/get", func(w http.ResponseWriter, r *http.Request) {
-		s.handleGet(w, r)
-	})
-	mux.HandleFunc("/control/reset", func(w http.ResponseWriter, r *http.Request) {
-		s.handleReset(w, r)
-	})
-	mux.HandleFunc("/control/delete", func(w http.ResponseWriter, r *http.Request) {
-		s.handleDelete(w, r)
-	})
-	mux.HandleFunc("/stat/livestat", func(w http.ResponseWriter, r *http.Request) {
-		s.GetLiveStatics(w, r)
-	})
+	mux.HandleFunc("/control/push", s.handlePush)
+	mux.HandleFunc("/control/pull", s.handlePull)
+	mux.HandleFunc("/control/get", s.handleGet)
+	mux.HandleFunc("/control/reset", s.handleReset)
+	mux.HandleFunc("/control/delete", s.handleDelete)
+	mux.HandleFunc("/stat/livestat", s.getLiveStatics)
 	http.Serve(l, JWTMiddleware(mux))
 	return nil
 }
 
 type stream struct {
 	Key             string `json:"key"`
-	Url             string `json:"url"`
-	StreamId        uint32 `json:"stream_id"`
+	URL             string `json:"url"`
+	StreamID        uint32 `json:"stream_id"`
 	VideoTotalBytes uint64 `json:"video_total_bytes"`
 	VideoSpeed      uint64 `json:"video_speed"`
 	AudioTotalBytes uint64 `json:"audio_total_bytes"`
@@ -142,17 +138,17 @@ type streams struct {
 	Players    []stream `json:"players"`
 }
 
-//http://127.0.0.1:8090/stat/livestat
-func (server *Server) GetLiveStatics(w http.ResponseWriter, req *http.Request) {
+// getLiveStatics get the static of this live
+func (s *Server) getLiveStatics(w http.ResponseWriter, req *http.Request) {
 	res := &Response{
 		w:      w,
 		Data:   nil,
 		Status: 200,
 	}
 
-	defer res.SendJson()
+	defer res.SendJSON()
 
-	rtmpStream := server.handler.(*rtmp.RtmpStream)
+	rtmpStream := s.handler.(*rtmp.Streams)
 	if rtmpStream == nil {
 		res.Status = 500
 		res.Data = "Get rtmp stream information error"
@@ -162,12 +158,19 @@ func (server *Server) GetLiveStatics(w http.ResponseWriter, req *http.Request) {
 	msgs := new(streams)
 	for item := range rtmpStream.GetStreams().IterBuffered() {
 		if s, ok := item.Val.(*rtmp.Stream); ok {
-			if s.GetReader() != nil {
-				switch s.GetReader().(type) {
+			if s.Reader() != nil {
+				switch s.Reader().(type) {
 				case *rtmp.VirReader:
-					v := s.GetReader().(*rtmp.VirReader)
-					msg := stream{item.Key, v.Info().URL, v.ReadBWInfo.StreamId, v.ReadBWInfo.VideoDatainBytes, v.ReadBWInfo.VideoSpeedInBytesperMS,
-						v.ReadBWInfo.AudioDatainBytes, v.ReadBWInfo.AudioSpeedInBytesperMS}
+					v := s.Reader().(*rtmp.VirReader)
+					msg := stream{
+						Key:             item.Key,
+						URL:             v.Info().URL,
+						StreamID:        v.ReadBWInfo.StreamID,
+						VideoTotalBytes: v.ReadBWInfo.VideoDatainBytes,
+						VideoSpeed:      v.ReadBWInfo.VideoSpeedInBytesperMS,
+						AudioTotalBytes: v.ReadBWInfo.AudioDatainBytes,
+						AudioSpeed:      v.ReadBWInfo.AudioSpeedInBytesperMS,
+					}
 					msgs.Publishers = append(msgs.Publishers, msg)
 				}
 			}
@@ -175,15 +178,22 @@ func (server *Server) GetLiveStatics(w http.ResponseWriter, req *http.Request) {
 	}
 
 	for item := range rtmpStream.GetStreams().IterBuffered() {
-		ws := item.Val.(*rtmp.Stream).GetWs()
+		ws := item.Val.(*rtmp.Stream).Ws()
 		for s := range ws.IterBuffered() {
 			if pw, ok := s.Val.(*rtmp.PackWriterCloser); ok {
-				if pw.GetWriter() != nil {
-					switch pw.GetWriter().(type) {
+				if pw.Writer() != nil {
+					switch pw.Writer().(type) {
 					case *rtmp.VirWriter:
-						v := pw.GetWriter().(*rtmp.VirWriter)
-						msg := stream{item.Key, v.Info().URL, v.WriteBWInfo.StreamId, v.WriteBWInfo.VideoDatainBytes, v.WriteBWInfo.VideoSpeedInBytesperMS,
-							v.WriteBWInfo.AudioDatainBytes, v.WriteBWInfo.AudioSpeedInBytesperMS}
+						v := pw.Writer().(*rtmp.VirWriter)
+						msg := stream{
+							Key:             item.Key,
+							URL:             v.Info().URL,
+							StreamID:        v.WriteBWInfo.StreamID,
+							VideoTotalBytes: v.WriteBWInfo.VideoDatainBytes,
+							VideoSpeed:      v.WriteBWInfo.VideoSpeedInBytesperMS,
+							AudioTotalBytes: v.WriteBWInfo.AudioDatainBytes,
+							AudioSpeed:      v.WriteBWInfo.AudioSpeedInBytesperMS,
+						}
 						msgs.Players = append(msgs.Players, msg)
 					}
 				}
@@ -195,7 +205,9 @@ func (server *Server) GetLiveStatics(w http.ResponseWriter, req *http.Request) {
 	res.Data = resp
 }
 
-//http://127.0.0.1:8090/control/pull?&oper=start&app=live&name=123456&url=rtmp://192.168.16.136/live/123456
+// handlePull pull a rtmp stream to a application
+// url schema like this:
+//  http://127.0.0.1:8090/control/pull?&oper=start&app=live&name=123456&url=rtmp://192.168.16.136/live/123456
 func (s *Server) handlePull(w http.ResponseWriter, req *http.Request) {
 	var retString string
 	var err error
@@ -206,7 +218,7 @@ func (s *Server) handlePull(w http.ResponseWriter, req *http.Request) {
 		Status: 200,
 	}
 
-	defer res.SendJson()
+	defer res.SendJSON()
 
 	if req.ParseForm() != nil {
 		res.Status = 400
@@ -263,7 +275,9 @@ func (s *Server) handlePull(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-//http://127.0.0.1:8090/control/push?&oper=start&app=live&name=123456&url=rtmp://192.168.16.136/live/123456
+// handlePush push a stream
+// the URL schema like this:
+//  http://127.0.0.1:8090/control/push?&oper=start&app=live&name=123456&url=rtmp://192.168.16.136/live/123456
 func (s *Server) handlePush(w http.ResponseWriter, req *http.Request) {
 	var retString string
 	var err error
@@ -274,7 +288,7 @@ func (s *Server) handlePush(w http.ResponseWriter, req *http.Request) {
 		Status: 200,
 	}
 
-	defer res.SendJson()
+	defer res.SendJSON()
 
 	if req.ParseForm() != nil {
 		res.Data = "url: /control/push?&oper=start&app=live&name=123456&url=rtmp://192.168.16.136/live/123456"
@@ -326,14 +340,16 @@ func (s *Server) handlePush(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-//http://127.0.0.1:8090/control/reset?room=ROOM_NAME
+// handleReset reset a room
+// the URL schema like:
+//  http://127.0.0.1:8090/control/reset?room=ROOM_NAME
 func (s *Server) handleReset(w http.ResponseWriter, r *http.Request) {
 	res := &Response{
 		w:      w,
 		Data:   nil,
 		Status: 200,
 	}
-	defer res.SendJson()
+	defer res.SendJSON()
 
 	if err := r.ParseForm(); err != nil {
 		res.Status = 400
@@ -358,14 +374,16 @@ func (s *Server) handleReset(w http.ResponseWriter, r *http.Request) {
 	res.Data = msg
 }
 
-//http://127.0.0.1:8090/control/get?room=ROOM_NAME
+// handleGet get a key by channel room
+// the url schema like:
+//  http://127.0.0.1:8090/control/get?room=ROOM_NAME
 func (s *Server) handleGet(w http.ResponseWriter, r *http.Request) {
 	res := &Response{
 		w:      w,
 		Data:   nil,
 		Status: 200,
 	}
-	defer res.SendJson()
+	defer res.SendJSON()
 
 	if err := r.ParseForm(); err != nil {
 		res.Status = 400
@@ -389,14 +407,16 @@ func (s *Server) handleGet(w http.ResponseWriter, r *http.Request) {
 	res.Data = msg
 }
 
-//http://127.0.0.1:8090/control/delete?room=ROOM_NAME
+// handleDelete delete the room
+// this url like this:
+//   http://127.0.0.1:8090/control/delete?room=ROOM_NAME
 func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
 	res := &Response{
 		w:      w,
 		Data:   nil,
 		Status: 200,
 	}
-	defer res.SendJson()
+	defer res.SendJSON()
 
 	if err := r.ParseForm(); err != nil {
 		res.Status = 400

@@ -19,7 +19,7 @@ func (a *align) align(dts *uint64, inc uint32) {
 		dPts = aFrameDts - estPts
 	}
 
-	if dPts <= uint64(syncms)*h264_default_hz {
+	if dPts <= uint64(syncms)*defaultH264Hz {
 		a.frameNum++
 		*dts = estPts
 		return

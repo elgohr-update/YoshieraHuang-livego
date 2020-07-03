@@ -12,6 +12,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// Server is the http flv server
 type Server struct {
 	handler av.Handler
 }
@@ -26,46 +27,44 @@ type streams struct {
 	Players    []stream `json:"players"`
 }
 
+// NewServer returns a server
 func NewServer(h av.Handler) *Server {
 	return &Server{
 		handler: h,
 	}
 }
 
+// Serve serves http requests
 func (server *Server) Serve(l net.Listener) error {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		server.handleConn(w, r)
-	})
-	mux.HandleFunc("/streams", func(w http.ResponseWriter, r *http.Request) {
-		server.getStream(w, r)
-	})
+	mux.HandleFunc("/", server.handleConn)
+	mux.HandleFunc("/streams", server.getStream)
 	http.Serve(l, mux)
 	return nil
 }
 
-// 获取发布和播放器的信息
+// getStreams get the information of publishers and players
 func (server *Server) getStreams(w http.ResponseWriter, r *http.Request) *streams {
-	rtmpStream := server.handler.(*rtmp.RtmpStream)
+	rtmpStream := server.handler.(*rtmp.Streams)
 	if rtmpStream == nil {
 		return nil
 	}
 	msgs := new(streams)
 	for item := range rtmpStream.GetStreams().IterBuffered() {
 		if s, ok := item.Val.(*rtmp.Stream); ok {
-			if s.GetReader() != nil {
-				msg := stream{item.Key, s.GetReader().Info().UID}
+			if s.Reader() != nil {
+				msg := stream{item.Key, s.Reader().Info().UID}
 				msgs.Publishers = append(msgs.Publishers, msg)
 			}
 		}
 	}
 
 	for item := range rtmpStream.GetStreams().IterBuffered() {
-		ws := item.Val.(*rtmp.Stream).GetWs()
+		ws := item.Val.(*rtmp.Stream).Ws()
 		for s := range ws.IterBuffered() {
 			if pw, ok := s.Val.(*rtmp.PackWriterCloser); ok {
-				if pw.GetWriter() != nil {
-					msg := stream{item.Key, pw.GetWriter().Info().UID}
+				if pw.Writer() != nil {
+					msg := stream{item.Key, pw.Writer().Info().UID}
 					msgs.Players = append(msgs.Players, msg)
 				}
 			}
@@ -75,6 +74,7 @@ func (server *Server) getStreams(w http.ResponseWriter, r *http.Request) *stream
 	return msgs
 }
 
+// getStream handles getStream request
 func (server *Server) getStream(w http.ResponseWriter, r *http.Request) {
 	msgs := server.getStreams(w, r)
 	if msgs == nil {
@@ -85,6 +85,7 @@ func (server *Server) getStream(w http.ResponseWriter, r *http.Request) {
 	w.Write(resp)
 }
 
+// handleConn handles connections
 func (server *Server) handleConn(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -127,7 +128,7 @@ func (server *Server) handleConn(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Access-Control-Allow-Origin", "*")
-	writer := NewFLVWriter(paths[0], paths[1], url, w)
+	writer := NewWriter(paths[0], paths[1], url, w)
 
 	server.handler.HandleWriter(writer)
 	writer.Wait()

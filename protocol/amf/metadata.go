@@ -8,26 +8,32 @@ import (
 )
 
 const (
+	// ADD is a marker for ADD
 	ADD = 0x0
+	// DEL is a marker for DEL
 	DEL = 0x3
 )
 
 const (
+	// SetDataFrame is the frame for `@setDateFrame`
 	SetDataFrame string = "@setDataFrame"
-	OnMetaData   string = "onMetaData"
+	// OnMetaData is frame for `onMedataData`
+	OnMetaData string = "onMetaData"
 )
 
 var setFrameFrame []byte
 
+// init set setFrameFrame
 func init() {
 	b := bytes.NewBuffer(nil)
 	encoder := &Encoder{}
-	if _, err := encoder.Encode(b, SetDataFrame, AMF0); err != nil {
+	if _, err := encoder.Encode(b, AMF0, SetDataFrame); err != nil {
 		log.Fatal(err)
 	}
 	setFrameFrame = b.Bytes()
 }
 
+// MetaDataReform retrieve metadate from frame
 func MetaDataReform(p []byte, flag uint8) ([]byte, error) {
 	r := bytes.NewReader(p)
 	decoder := &Decoder{}

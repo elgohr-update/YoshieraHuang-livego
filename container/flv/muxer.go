@@ -49,24 +49,29 @@ const (
 	headerLen = 11
 )
 
-type FLVWriter struct {
-	av.RWBase
+// Writer is a writer for flv media
+type Writer struct {
+	av.RWBaser
 
-	UID             string
-	app, title, url string
-	buf             []byte
-	closed          chan struct{}
-	ctx             *os.File
+	uid    string
+	app    string
+	title  string
+	url    string
+	buf    []byte
+	closed chan struct{}
+	ctx    *os.File
 }
 
-func NewFLVWriter(app, title, url string, ctx *os.File) *FLVWriter {
-	ret := &FLVWriter{
-		UID:    uid.NewId(),
+// NewWriter returns a writer
+func NewWriter(app, title, url string, ctx *os.File) *Writer {
+	ret := &Writer{
+		RWBaser: av.NewRWBase(time.Second * 10),
+
+		uid:    uid.NewID(),
 		app:    app,
 		title:  title,
 		url:    url,
 		ctx:    ctx,
-		RWBase: av.NewRWBase(time.Second * 10),
 		closed: make(chan struct{}),
 		buf:    make([]byte, headerLen),
 	}
@@ -78,26 +83,27 @@ func NewFLVWriter(app, title, url string, ctx *os.File) *FLVWriter {
 	return ret
 }
 
-func (writer *FLVWriter) Write(p *av.Packet) error {
+// Write write packet into writer
+func (writer *Writer) Write(p *av.Packet) error {
 	writer.SetPreTime()
 	h := writer.buf[:headerLen]
-	typeID := av.TAG_VIDEO
+	typeID := av.TagVideo
 	if !p.IsVideo {
 		if p.IsMetadata {
 			var err error
-			typeID = av.TAG_SCRIPTDATAAMF0
+			typeID = av.TagScriptDataAMF0
 			p.Data, err = amf.MetaDataReform(p.Data, amf.DEL)
 			if err != nil {
 				return err
 			}
 		} else {
-			typeID = av.TAG_AUDIO
+			typeID = av.TagAudio
 		}
 	}
 	dataLen := len(p.Data)
 	timestamp := p.TimeStamp
-	timestamp += writer.BaseTimeStamp()
-	writer.RecTimeStamp(timestamp, uint32(typeID))
+	timestamp += writer.BaseTimestamp()
+	writer.RecTimestamp(timestamp, uint32(typeID))
 
 	preDataLen := dataLen + headerLen
 	timestampbase := timestamp & 0xffffff
@@ -124,28 +130,33 @@ func (writer *FLVWriter) Write(p *av.Packet) error {
 	return nil
 }
 
-func (writer *FLVWriter) Wait() {
+// Wait waits for closing
+func (writer *Writer) Wait() {
 	select {
 	case <-writer.closed:
 		return
 	}
 }
 
-func (writer *FLVWriter) Close(error) {
+// Close close the writer
+func (writer *Writer) Close(error) {
 	writer.ctx.Close()
 	close(writer.closed)
 }
 
-func (writer *FLVWriter) Info() (ret av.Info) {
-	ret.UID = writer.UID
+// Info return the info
+func (writer *Writer) Info() (ret av.Info) {
+	ret.UID = writer.uid
 	ret.URL = writer.url
 	ret.Key = writer.app + "/" + writer.title
 	return
 }
 
-type FlvDvr struct{}
+// Dvr is a dvr
+type Dvr struct{}
 
-func (f *FlvDvr) GetWriter(info av.Info) av.WriteCloser {
+// Writer get writer from Dvr
+func (f *Dvr) Writer(info av.Info) av.WriteCloser {
 	paths := strings.SplitN(info.Key, "/", 2)
 	if len(paths) != 2 {
 		log.Warning("invalid info")
@@ -168,7 +179,7 @@ func (f *FlvDvr) GetWriter(info av.Info) av.WriteCloser {
 		return nil
 	}
 
-	writer := NewFLVWriter(paths[0], paths[1], info.URL, w)
+	writer := NewWriter(paths[0], paths[1], info.URL, w)
 	log.Debug("new flv dvr: ", writer.Info())
 	return writer
 }

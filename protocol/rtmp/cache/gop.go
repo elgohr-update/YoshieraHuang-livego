@@ -7,10 +7,12 @@ import (
 )
 
 var (
-	maxGOPCap    int = 1024
-	ErrGopTooBig     = fmt.Errorf("gop to big")
+	maxGOPCap = 1024
+	// ErrGopTooBig means gop is too big
+	ErrGopTooBig = fmt.Errorf("gop too big")
 )
 
+// array is a packet array
 type array struct {
 	index   int
 	packets []*av.Packet
@@ -38,6 +40,7 @@ func (array *array) write(packet *av.Packet) error {
 	return nil
 }
 
+// send send all packet in this array to WriteCloser
 func (array *array) send(w av.WriteCloser) error {
 	var err error
 	for i := 0; i < array.index; i++ {
@@ -49,6 +52,7 @@ func (array *array) send(w av.WriteCloser) error {
 	return err
 }
 
+// GopCache is a gop cache
 type GopCache struct {
 	start     bool
 	num       int
@@ -57,6 +61,7 @@ type GopCache struct {
 	gops      []*array
 }
 
+// NewGopCache returns a GopCache
 func NewGopCache(num int) *GopCache {
 	return &GopCache{
 		count: num,
@@ -84,6 +89,7 @@ func (gopCache *GopCache) writeToArray(chunk *av.Packet, startNew bool) error {
 	return nil
 }
 
+// Write writes a packet
 func (gopCache *GopCache) Write(p *av.Packet) {
 	var ok bool
 	if p.IsVideo {
@@ -115,6 +121,7 @@ func (gopCache *GopCache) sendTo(w av.WriteCloser) error {
 	return nil
 }
 
+// Send sends all packet into WriteCloser
 func (gopCache *GopCache) Send(w av.WriteCloser) error {
 	return gopCache.sendTo(w)
 }

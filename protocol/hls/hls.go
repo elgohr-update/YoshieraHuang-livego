@@ -2,13 +2,14 @@ package hls
 
 import (
 	"fmt"
-	"github.com/gwuhaolin/livego/configure"
 	"net"
 	"net/http"
 	"path"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/gwuhaolin/livego/configure"
 
 	"github.com/gwuhaolin/livego/av"
 
@@ -21,23 +22,30 @@ const (
 )
 
 var (
-	ErrNoPublisher         = fmt.Errorf("no publisher")
-	ErrInvalidReq          = fmt.Errorf("invalid req url path")
-	ErrNoSupportVideoCodec = fmt.Errorf("no support video codec")
-	ErrNoSupportAudioCodec = fmt.Errorf("no support audio codec")
+	// ErrNoPublisher means no publisher
+	ErrNoPublisher = fmt.Errorf("no publisher")
+	// ErrInvalidReq means invalid req url path
+	ErrInvalidReq = fmt.Errorf("invalid req url path")
+	// ErrUnsupportedVideoCodec means unsupported video codec
+	ErrUnsupportedVideoCodec = fmt.Errorf("unsupported video codec")
+	// ErrUnsupportedAudioCodec means unsupported audio codec
+	ErrUnsupportedAudioCodec = fmt.Errorf("unsupported audio codec")
 )
 
-var crossdomainxml = []byte(`<?xml version="1.0" ?>
+var crossdomainxml = []byte(
+	`<?xml version="1.0" ?>
 <cross-domain-policy>
 	<allow-access-from domain="*" />
 	<allow-http-request-headers-from domain="*" headers="*"/>
 </cross-domain-policy>`)
 
+// Server is a HLS server
 type Server struct {
 	listener net.Listener
 	conns    cmap.ConcurrentMap
 }
 
+// NewServer returns a Server
 func NewServer() *Server {
 	ret := &Server{
 		conns: cmap.New(),
@@ -46,17 +54,17 @@ func NewServer() *Server {
 	return ret
 }
 
+// Serve serves http requests
 func (server *Server) Serve(listener net.Listener) error {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		server.handle(w, r)
-	})
+	mux.HandleFunc("/", server.handle)
 	server.listener = listener
 	http.Serve(listener, mux)
 	return nil
 }
 
-func (server *Server) GetWriter(info av.Info) av.WriteCloser {
+// Writer get writer
+func (server *Server) Writer(info av.Info) av.WriteCloser {
 	var s *Source
 	ok := server.conns.Has(info.Key)
 	if !ok {

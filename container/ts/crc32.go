@@ -1,5 +1,6 @@
 package ts
 
+// GenCrc32 generates crc32 sum
 func GenCrc32(src []byte) uint32 {
 	crcTable := []uint32{
 		0x00000000, 0x04c11db7, 0x09823b6e, 0x0d4326d9,

@@ -17,6 +17,7 @@ const (
 	audioSID = 0xc0
 )
 
+// Muxer is the ts muxer
 type Muxer struct {
 	videoCc  byte
 	audioCc  byte
@@ -27,10 +28,12 @@ type Muxer struct {
 	tsPacket [tsPacketLen]byte
 }
 
+// NewMuxer return a Muxer
 func NewMuxer() *Muxer {
 	return &Muxer{}
 }
 
+// Mux muxes the packet
 func (muxer *Muxer) Mux(p *av.Packet, w io.Writer) error {
 	first := true
 	wBytes := 0
@@ -158,7 +161,7 @@ func (muxer *Muxer) Mux(p *av.Packet, w io.Writer) error {
 	return nil
 }
 
-//PAT return pat data
+// PAT return pat data
 func (muxer *Muxer) PAT() []byte {
 	i := 0
 	remainByte := 0

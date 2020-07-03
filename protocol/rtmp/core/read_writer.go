@@ -5,18 +5,21 @@ import (
 	"io"
 )
 
+// ReadWriter is a wrapper of bufio.ReadReadWriter
 type ReadWriter struct {
 	*bufio.ReadWriter
 	readError  error
 	writeError error
 }
 
+// NewReadWriter wrapps a ReadWriter to return a ReadWriter
 func NewReadWriter(rw io.ReadWriter, bufSize int) *ReadWriter {
 	return &ReadWriter{
 		ReadWriter: bufio.NewReadWriter(bufio.NewReaderSize(rw, bufSize), bufio.NewWriterSize(rw, bufSize)),
 	}
 }
 
+// Read reads from reader to a byte array
 func (rw *ReadWriter) Read(p []byte) (int, error) {
 	if rw.readError != nil {
 		return 0, rw.readError
@@ -26,10 +29,12 @@ func (rw *ReadWriter) Read(p []byte) (int, error) {
 	return n, err
 }
 
+// ReadError returns the error during error
 func (rw *ReadWriter) ReadError() error {
 	return rw.readError
 }
 
+// ReadUintBE reads from ReadWriter to be big-endian uint32
 func (rw *ReadWriter) ReadUintBE(n int) (uint32, error) {
 	if rw.readError != nil {
 		return 0, rw.readError
@@ -46,6 +51,7 @@ func (rw *ReadWriter) ReadUintBE(n int) (uint32, error) {
 	return ret, nil
 }
 
+// ReadUintLE reads from ReadWriter to be little-endian uint32
 func (rw *ReadWriter) ReadUintLE(n int) (uint32, error) {
 	if rw.readError != nil {
 		return 0, rw.readError
@@ -62,6 +68,7 @@ func (rw *ReadWriter) ReadUintLE(n int) (uint32, error) {
 	return ret, nil
 }
 
+// Flush does flushing
 func (rw *ReadWriter) Flush() error {
 	if rw.writeError != nil {
 		return rw.writeError
@@ -80,10 +87,12 @@ func (rw *ReadWriter) Write(p []byte) (int, error) {
 	return rw.ReadWriter.Write(p)
 }
 
+// WriteError returns the error during writing
 func (rw *ReadWriter) WriteError() error {
 	return rw.writeError
 }
 
+// WriteUintBE writes a big-endian integer
 func (rw *ReadWriter) WriteUintBE(v uint32, n int) error {
 	if rw.writeError != nil {
 		return rw.writeError
@@ -98,6 +107,7 @@ func (rw *ReadWriter) WriteUintBE(v uint32, n int) error {
 	return nil
 }
 
+// WriteUintLE writes a little-endian integer
 func (rw *ReadWriter) WriteUintLE(v uint32, n int) error {
 	if rw.writeError != nil {
 		return rw.writeError

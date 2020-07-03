@@ -7,6 +7,7 @@ import (
 	"reflect"
 )
 
+// EncodeAmf0 encodes amf0 to Writer
 // amf0 polymorphic router
 func (e *Encoder) EncodeAmf0(w io.Writer, val interface{}) (int, error) {
 	if val == nil {
@@ -21,11 +22,11 @@ func (e *Encoder) EncodeAmf0(w io.Writer, val interface{}) (int, error) {
 	switch v.Kind() {
 	case reflect.String:
 		str := v.String()
-		if len(str) <= AMF0_STRING_MAX {
+		if len(str) <= AMF0StringMax {
 			return e.EncodeAmf0String(w, str, true)
-		} else {
-			return e.EncodeAmf0LongString(w, str, true)
 		}
+		return e.EncodeAmf0LongString(w, str, true)
+
 	case reflect.Bool:
 		return e.EncodeAmf0Boolean(w, v.Bool(), true)
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
@@ -56,14 +57,15 @@ func (e *Encoder) EncodeAmf0(w io.Writer, val interface{}) (int, error) {
 	return 0, fmt.Errorf("encode amf0: unsupported type %s", v.Type())
 }
 
+// EncodeAmf0Number encodes amf0 number
 // marker: 1 byte 0x00
 // format: 8 byte big endian float64
 func (e *Encoder) EncodeAmf0Number(w io.Writer, val float64, encodeMarker bool) (n int, err error) {
 	if encodeMarker {
-		if err = WriteMarker(w, AMF0_NUMBER_MARKER); err != nil {
+		if err = WriteMarker(w, AMF0NumberMarker); err != nil {
 			return
 		}
-		n += 1
+		n++
 	}
 
 	err = binary.Write(w, binary.BigEndian, &val)
@@ -75,22 +77,24 @@ func (e *Encoder) EncodeAmf0Number(w io.Writer, val float64, encodeMarker bool) 
 	return
 }
 
+// EncodeAmf0Boolean encodes amf0 boolean
 // marker: 1 byte 0x01
 // format: 1 byte, 0x00 = false, 0x01 = true
 func (e *Encoder) EncodeAmf0Boolean(w io.Writer, val bool, encodeMarker bool) (n int, err error) {
 	if encodeMarker {
-		if err = WriteMarker(w, AMF0_BOOLEAN_MARKER); err != nil {
+		if err = WriteMarker(w, AMF0BooleanMarker); err != nil {
 			return
 		}
-		n += 1
+		n++
+
 	}
 
 	var m int
 	buf := make([]byte, 1)
 	if val {
-		buf[0] = AMF0_BOOLEAN_TRUE
+		buf[0] = AMF0BooleanTrue
 	} else {
-		buf[0] = AMF0_BOOLEAN_FALSE
+		buf[0] = AMF0BooleanFalse
 	}
 
 	m, err = w.Write(buf)
@@ -102,16 +106,18 @@ func (e *Encoder) EncodeAmf0Boolean(w io.Writer, val bool, encodeMarker bool) (n
 	return
 }
 
+// EncodeAmf0String encodes amf0 string
 // marker: 1 byte 0x02
 // format:
 // - 2 byte big endian uint16 header to determine size
 // - n (size) byte utf8 string
 func (e *Encoder) EncodeAmf0String(w io.Writer, val string, encodeMarker bool) (n int, err error) {
 	if encodeMarker {
-		if err = WriteMarker(w, AMF0_STRING_MARKER); err != nil {
+		if err = WriteMarker(w, AMF0StringMarker); err != nil {
 			return
 		}
-		n += 1
+		n++
+
 	}
 
 	var m int
@@ -131,16 +137,18 @@ func (e *Encoder) EncodeAmf0String(w io.Writer, val string, encodeMarker bool) (
 	return
 }
 
+// EncodeAmf0Object encodes amf0 object
 // marker: 1 byte 0x03
 // format:
 // - loop encoded string followed by encoded value
 // - terminated with empty string followed by 1 byte 0x09
 func (e *Encoder) EncodeAmf0Object(w io.Writer, val Object, encodeMarker bool) (n int, err error) {
 	if encodeMarker {
-		if err = WriteMarker(w, AMF0_OBJECT_MARKER); err != nil {
+		if err = WriteMarker(w, AMF0ObjectMarker); err != nil {
 			return
 		}
-		n += 1
+		n++
+
 	}
 
 	var m int
@@ -164,41 +172,46 @@ func (e *Encoder) EncodeAmf0Object(w io.Writer, val Object, encodeMarker bool) (
 	}
 	n += m
 
-	err = WriteMarker(w, AMF0_OBJECT_END_MARKER)
+	err = WriteMarker(w, AMF0ObjectEndMarker)
 	if err != nil {
 		return n, fmt.Errorf("encode amf0: unable to object end marker: %s", err)
 	}
-	n += 1
+	n++
 
 	return
 }
 
+// EncodeAmf0Null encodes amf0 null
 // marker: 1 byte 0x05
 // no additional data
 func (e *Encoder) EncodeAmf0Null(w io.Writer, encodeMarker bool) (n int, err error) {
 	if encodeMarker {
-		if err = WriteMarker(w, AMF0_NULL_MARKER); err != nil {
+		if err = WriteMarker(w, AMF0NullMarker); err != nil {
 			return
 		}
-		n += 1
+		n++
+
 	}
 
 	return
 }
 
+// EncodeAmf0Undefined encodes amf0 undefined
 // marker: 1 byte 0x06
 // no additional data
 func (e *Encoder) EncodeAmf0Undefined(w io.Writer, encodeMarker bool) (n int, err error) {
 	if encodeMarker {
-		if err = WriteMarker(w, AMF0_UNDEFINED_MARKER); err != nil {
+		if err = WriteMarker(w, AMF0UndefinedMarker); err != nil {
 			return
 		}
-		n += 1
+		n++
+
 	}
 
 	return
 }
 
+// EncodeAmf0EcmaArray encodes amf0 ecma array
 // marker: 1 byte 0x08
 // format:
 // - 4 byte big endian uint32 with length of associative array
@@ -207,10 +220,11 @@ func (e *Encoder) EncodeAmf0Undefined(w io.Writer, encodeMarker bool) (n int, er
 //   - terminated with empty string followed by 1 byte 0x09
 func (e *Encoder) EncodeAmf0EcmaArray(w io.Writer, val Object, encodeMarker bool) (n int, err error) {
 	if encodeMarker {
-		if err = WriteMarker(w, AMF0_ECMA_ARRAY_MARKER); err != nil {
+		if err = WriteMarker(w, AMF0EcmaArrayMarker); err != nil {
 			return
 		}
-		n += 1
+		n++
+
 	}
 
 	var m int
@@ -230,16 +244,18 @@ func (e *Encoder) EncodeAmf0EcmaArray(w io.Writer, val Object, encodeMarker bool
 	return
 }
 
+// EncodeAmf0StrictArray encodes amf0 strict array
 // marker: 1 byte 0x0a
 // format:
 // - 4 byte big endian uint32 to determine length of associative array
 // - n (length) encoded values
 func (e *Encoder) EncodeAmf0StrictArray(w io.Writer, val Array, encodeMarker bool) (n int, err error) {
 	if encodeMarker {
-		if err = WriteMarker(w, AMF0_STRICT_ARRAY_MARKER); err != nil {
+		if err = WriteMarker(w, AMF0StrictArrayMarker); err != nil {
 			return
 		}
-		n += 1
+		n++
+
 	}
 
 	var m int
@@ -261,16 +277,18 @@ func (e *Encoder) EncodeAmf0StrictArray(w io.Writer, val Array, encodeMarker boo
 	return
 }
 
+// EncodeAmf0LongString encodes amf0 long string
 // marker: 1 byte 0x0c
 // format:
 // - 4 byte big endian uint32 header to determine size
 // - n (size) byte utf8 string
 func (e *Encoder) EncodeAmf0LongString(w io.Writer, val string, encodeMarker bool) (n int, err error) {
 	if encodeMarker {
-		if err = WriteMarker(w, AMF0_LONG_STRING_MARKER); err != nil {
+		if err = WriteMarker(w, AMF0LongStringMarker); err != nil {
 			return
 		}
-		n += 1
+		n++
+
 	}
 
 	var m int
@@ -290,20 +308,23 @@ func (e *Encoder) EncodeAmf0LongString(w io.Writer, val string, encodeMarker boo
 	return
 }
 
+// EncodeAmf0Unsupported encodes amf0 unsupported
 // marker: 1 byte 0x0d
 // no additional data
 func (e *Encoder) EncodeAmf0Unsupported(w io.Writer, encodeMarker bool) (n int, err error) {
 	if encodeMarker {
-		if err = WriteMarker(w, AMF0_UNSUPPORTED_MARKER); err != nil {
+		if err = WriteMarker(w, AMF0UnsupportedMarker); err != nil {
 			return
 		}
-		n += 1
+		n++
+
 	}
 
 	return
 }
 
+// EncodeAmf0Amf3Marker encodes amf0 amf3 marker
 // marker: 1 byte 0x11
 func (e *Encoder) EncodeAmf0Amf3Marker(w io.Writer) error {
-	return WriteMarker(w, AMF0_ACMPLUS_OBJECT_MARKER)
+	return WriteMarker(w, AMF0AcmplusObjectMarker)
 }

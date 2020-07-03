@@ -12,9 +12,11 @@ const (
 )
 
 var (
+	// ErrNoKey means no key
 	ErrNoKey = fmt.Errorf("No key for cache")
 )
 
+// TSCacheItem is the ts cache item
 type TSCacheItem struct {
 	id   string
 	num  int
@@ -23,6 +25,7 @@ type TSCacheItem struct {
 	lm   map[string]TSItem
 }
 
+// NewTSCacheItem returns a TSCacheItem
 func NewTSCacheItem(id string) *TSCacheItem {
 	return &TSCacheItem{
 		id:  id,
@@ -32,19 +35,21 @@ func NewTSCacheItem(id string) *TSCacheItem {
 	}
 }
 
-func (tcCacheItem *TSCacheItem) ID() string {
-	return tcCacheItem.id
+// ID returns the ID
+func (tsCacheItem *TSCacheItem) ID() string {
+	return tsCacheItem.id
 }
 
+// GenM3U8PlayList generates m3u8 playlist
 // TODO: found data race, fix it
-func (tcCacheItem *TSCacheItem) GenM3U8PlayList() ([]byte, error) {
+func (tsCacheItem *TSCacheItem) GenM3U8PlayList() ([]byte, error) {
 	var seq int
 	var getSeq bool
 	var maxDuration int
 	m3u8body := bytes.NewBuffer(nil)
-	for e := tcCacheItem.ll.Front(); e != nil; e = e.Next() {
+	for e := tsCacheItem.ll.Front(); e != nil; e = e.Next() {
 		key := e.Value.(string)
-		v, ok := tcCacheItem.lm[key]
+		v, ok := tsCacheItem.lm[key]
 		if ok {
 			if v.Duration > maxDuration {
 				maxDuration = v.Duration
@@ -64,19 +69,21 @@ func (tcCacheItem *TSCacheItem) GenM3U8PlayList() ([]byte, error) {
 	return w.Bytes(), nil
 }
 
-func (tcCacheItem *TSCacheItem) SetItem(key string, item TSItem) {
-	if tcCacheItem.ll.Len() == tcCacheItem.num {
-		e := tcCacheItem.ll.Front()
-		tcCacheItem.ll.Remove(e)
+// SetItem set item with key
+func (tsCacheItem *TSCacheItem) SetItem(key string, item TSItem) {
+	if tsCacheItem.ll.Len() == tsCacheItem.num {
+		e := tsCacheItem.ll.Front()
+		tsCacheItem.ll.Remove(e)
 		k := e.Value.(string)
-		delete(tcCacheItem.lm, k)
+		delete(tsCacheItem.lm, k)
 	}
-	tcCacheItem.lm[key] = item
-	tcCacheItem.ll.PushBack(key)
+	tsCacheItem.lm[key] = item
+	tsCacheItem.ll.PushBack(key)
 }
 
-func (tcCacheItem *TSCacheItem) GetItem(key string) (TSItem, error) {
-	item, ok := tcCacheItem.lm[key]
+// GetItem get item by key
+func (tsCacheItem *TSCacheItem) GetItem(key string) (TSItem, error) {
+	item, ok := tsCacheItem.lm[key]
 	if !ok {
 		return item, ErrNoKey
 	}

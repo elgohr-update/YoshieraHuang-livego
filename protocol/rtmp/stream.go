@@ -14,22 +14,25 @@ import (
 )
 
 var (
-	EmptyID = ""
+	emptyID = ""
 )
 
-type RtmpStream struct {
+// Streams is the streams of rtmp
+type Streams struct {
 	streams cmap.ConcurrentMap //key
 }
 
-func NewRtmpStream() *RtmpStream {
-	ret := &RtmpStream{
+// NewStreams returns RtmpStream
+func NewStreams() *Streams {
+	ret := &Streams{
 		streams: cmap.New(),
 	}
 	go ret.CheckAlive()
 	return ret
 }
 
-func (rs *RtmpStream) HandleReader(r av.ReadCloser) {
+// HandleReader handles reader
+func (rs *Streams) HandleReader(r av.ReadCloser) {
 	info := r.Info()
 	log.Debugf("HandleReader: info[%v]", info)
 
@@ -38,7 +41,7 @@ func (rs *RtmpStream) HandleReader(r av.ReadCloser) {
 	if stream, ok = i.(*Stream); ok {
 		stream.TransStop()
 		id := stream.ID()
-		if id != EmptyID && id != info.UID {
+		if id != emptyID && id != info.UID {
 			ns := NewStream()
 			stream.Copy(ns)
 			stream = ns
@@ -53,7 +56,8 @@ func (rs *RtmpStream) HandleReader(r av.ReadCloser) {
 	stream.AddReader(r)
 }
 
-func (rs *RtmpStream) HandleWriter(w av.WriteCloser) {
+// HandleWriter handles writer
+func (rs *Streams) HandleWriter(w av.WriteCloser) {
 	info := w.Info()
 	log.Debugf("HandleWriter: info[%v]", info)
 
@@ -72,11 +76,13 @@ func (rs *RtmpStream) HandleWriter(w av.WriteCloser) {
 	}
 }
 
-func (rs *RtmpStream) GetStreams() cmap.ConcurrentMap {
+// GetStreams get streams
+func (rs *Streams) GetStreams() cmap.ConcurrentMap {
 	return rs.streams
 }
 
-func (rs *RtmpStream) CheckAlive() {
+// CheckAlive check if this stream is alive
+func (rs *Streams) CheckAlive() {
 	for {
 		<-time.After(5 * time.Second)
 		for item := range rs.streams.IterBuffered() {
@@ -88,6 +94,7 @@ func (rs *RtmpStream) CheckAlive() {
 	}
 }
 
+// Stream is one rtmp stream
 type Stream struct {
 	isStart bool
 	cache   *cache.Cache
@@ -96,15 +103,18 @@ type Stream struct {
 	info    av.Info
 }
 
+// PackWriterCloser is a WriteCloser for packet
 type PackWriterCloser struct {
 	init bool
 	w    av.WriteCloser
 }
 
-func (p *PackWriterCloser) GetWriter() av.WriteCloser {
+// Writer gets WriteCloser
+func (p *PackWriterCloser) Writer() av.WriteCloser {
 	return p.w
 }
 
+// NewStream returns a Stream
 func NewStream() *Stream {
 	return &Stream{
 		cache: cache.NewCache(),
@@ -112,21 +122,25 @@ func NewStream() *Stream {
 	}
 }
 
+// ID returns ID
 func (s *Stream) ID() string {
 	if s.r != nil {
 		return s.r.Info().UID
 	}
-	return EmptyID
+	return emptyID
 }
 
-func (s *Stream) GetReader() av.ReadCloser {
+// Reader returns a ReadCloser
+func (s *Stream) Reader() av.ReadCloser {
 	return s.r
 }
 
-func (s *Stream) GetWs() cmap.ConcurrentMap {
+// Ws returns a ws
+func (s *Stream) Ws() cmap.ConcurrentMap {
 	return s.ws
 }
 
+// Copy copy this stream to dst stream
 func (s *Stream) Copy(dst *Stream) {
 	for item := range s.ws.IterBuffered() {
 		v := item.Val.(*PackWriterCloser)
@@ -136,17 +150,20 @@ func (s *Stream) Copy(dst *Stream) {
 	}
 }
 
+// AddReader add a reader
 func (s *Stream) AddReader(r av.ReadCloser) {
 	s.r = r
 	go s.TransStart()
 }
 
+// AddWriter add a writer
 func (s *Stream) AddWriter(w av.WriteCloser) {
 	info := w.Info()
 	pw := &PackWriterCloser{w: w}
 	s.ws.Set(info.UID, pw)
 }
 
+// StartStaticPush starts push if static_push is set
 /*检测本application下是否配置static_push,
 如果配置, 启动push远端的连接*/
 func (s *Stream) StartStaticPush() {
@@ -189,6 +206,7 @@ func (s *Stream) StartStaticPush() {
 	}
 }
 
+// StopStaticPush stops the static push
 func (s *Stream) StopStaticPush() {
 	key := s.info.Key
 
@@ -228,6 +246,7 @@ func (s *Stream) StopStaticPush() {
 	}
 }
 
+// IsSendStaticPush returns if static push is sent
 func (s *Stream) IsSendStaticPush() bool {
 	key := s.info.Key
 
@@ -261,13 +280,13 @@ func (s *Stream) IsSendStaticPush() bool {
 			return true
 			//staticpushObj.WriteAvPacket(&packet)
 			//log.Debugf("SendStaticPush: WriteAvPacket %s ", pushurl)
-		} else {
-			log.Debugf("SendStaticPush GetStaticPushObject %s error", pushurl)
 		}
+		log.Debugf("SendStaticPush GetStaticPushObject %s error", pushurl)
 	}
 	return false
 }
 
+// SendStaticPush sends static push
 func (s *Stream) SendStaticPush(packet av.Packet) {
 	key := s.info.Key
 
@@ -297,7 +316,7 @@ func (s *Stream) SendStaticPush(packet av.Packet) {
 
 		staticpushObj, err := rtmprelay.GetStaticPushObject(pushurl)
 		if (staticpushObj != nil) && (err == nil) {
-			staticpushObj.WriteAvPacket(&packet)
+			staticpushObj.Write(&packet)
 			//log.Debugf("SendStaticPush: WriteAvPacket %s ", pushurl)
 		} else {
 			log.Debugf("SendStaticPush GetStaticPushObject %s error", pushurl)
@@ -305,6 +324,7 @@ func (s *Stream) SendStaticPush(packet av.Packet) {
 	}
 }
 
+// TransStart start the transport
 func (s *Stream) TransStart() {
 	s.isStart = true
 	var p av.Packet
@@ -354,6 +374,7 @@ func (s *Stream) TransStart() {
 	}
 }
 
+// TransStop stops the transport
 func (s *Stream) TransStop() {
 	log.Debugf("TransStop: %s", s.info.Key)
 
@@ -364,6 +385,7 @@ func (s *Stream) TransStop() {
 	s.isStart = false
 }
 
+// CheckAlive checks if this stream is alive or not
 func (s *Stream) CheckAlive() (n int) {
 	if s.r != nil && s.isStart {
 		if s.r.Alive() {

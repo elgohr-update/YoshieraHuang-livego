@@ -12,42 +12,45 @@ import (
 )
 
 var (
-	STOP_CTRL = "RTMPRELAY_STOP"
+	stopCtrl = "RTMPRELAY_STOP"
 )
 
+// RtmpRelay is a relay for rtmp stream
 type RtmpRelay struct {
-	PlayUrl              string
-	PublishUrl           string
-	cs_chan              chan core.ChunkStream
-	sndctrl_chan         chan string
+	PlayURL              string
+	PublishURL           string
+	csChan               chan core.ChunkStream
+	sndctrlChan          chan string
 	connectPlayClient    *core.ConnClient
 	connectPublishClient *core.ConnClient
 	startflag            bool
 }
 
-func NewRtmpRelay(playurl *string, publishurl *string) *RtmpRelay {
+// NewRtmpRelay returns a RtmpRelay
+func NewRtmpRelay(playURL *string, publishURL *string) *RtmpRelay {
 	return &RtmpRelay{
-		PlayUrl:              *playurl,
-		PublishUrl:           *publishurl,
-		cs_chan:              make(chan core.ChunkStream, 500),
-		sndctrl_chan:         make(chan string),
+		PlayURL:              *playURL,
+		PublishURL:           *publishURL,
+		csChan:               make(chan core.ChunkStream, 500),
+		sndctrlChan:          make(chan string),
 		connectPlayClient:    nil,
 		connectPublishClient: nil,
 		startflag:            false,
 	}
 }
 
-func (self *RtmpRelay) rcvPlayChunkStream() {
+// rcvPlayChunkStream received play chunk stream
+func (relay *RtmpRelay) rcvPlayChunkStream() {
 	log.Debug("rcvPlayRtmpMediaPacket connectClient.Read...")
 	for {
 		var rc core.ChunkStream
 
-		if self.startflag == false {
-			self.connectPlayClient.Close(nil)
-			log.Debugf("rcvPlayChunkStream close: playurl=%s, publishurl=%s", self.PlayUrl, self.PublishUrl)
+		if relay.startflag == false {
+			relay.connectPlayClient.Close(nil)
+			log.Debugf("rcvPlayChunkStream close: playurl=%s, publishurl=%s", relay.PlayURL, relay.PublishURL)
 			break
 		}
-		err := self.connectPlayClient.Read(&rc)
+		err := relay.connectPlayClient.Read(&rc)
 
 		if err != nil && err == io.EOF {
 			break
@@ -56,69 +59,72 @@ func (self *RtmpRelay) rcvPlayChunkStream() {
 		switch rc.TypeID {
 		case 20, 17:
 			r := bytes.NewReader(rc.Data)
-			vs, err := self.connectPlayClient.DecodeBatch(r, amf.AMF0)
+			vs, err := relay.connectPlayClient.DecodeBatch(r, amf.AMF0)
 
 			log.Debugf("rcvPlayRtmpMediaPacket: vs=%v, err=%v", vs, err)
 		case 18:
 			log.Debug("rcvPlayRtmpMediaPacket: metadata....")
 		case 8, 9:
-			self.cs_chan <- rc
+			relay.csChan <- rc
 		}
 	}
 }
 
-func (self *RtmpRelay) sendPublishChunkStream() {
+// sendPublishChunkStream sends publish chunk stream
+func (relay *RtmpRelay) sendPublishChunkStream() {
 	for {
 		select {
-		case rc := <-self.cs_chan:
+		case rc := <-relay.csChan:
 			//log.Debugf("sendPublishChunkStream: rc.TypeID=%v length=%d", rc.TypeID, len(rc.Data))
-			self.connectPublishClient.Write(rc)
-		case ctrlcmd := <-self.sndctrl_chan:
-			if ctrlcmd == STOP_CTRL {
-				self.connectPublishClient.Close(nil)
-				log.Debugf("sendPublishChunkStream close: playurl=%s, publishurl=%s", self.PlayUrl, self.PublishUrl)
+			relay.connectPublishClient.Write(rc)
+		case ctrlcmd := <-relay.sndctrlChan:
+			if ctrlcmd == stopCtrl {
+				relay.connectPublishClient.Close(nil)
+				log.Debugf("sendPublishChunkStream close: playurl=%s, publishurl=%s", relay.PlayURL, relay.PublishURL)
 				break
 			}
 		}
 	}
 }
 
-func (self *RtmpRelay) Start() error {
-	if self.startflag {
-		return fmt.Errorf("The rtmprelay already started, playurl=%s, publishurl=%s", self.PlayUrl, self.PublishUrl)
+// Start start the relay
+func (relay *RtmpRelay) Start() error {
+	if relay.startflag {
+		return fmt.Errorf("The rtmprelay already started, playurl=%s, publishurl=%s", relay.PlayURL, relay.PublishURL)
 	}
 
-	self.connectPlayClient = core.NewConnClient()
-	self.connectPublishClient = core.NewConnClient()
+	relay.connectPlayClient = core.NewConnClient()
+	relay.connectPublishClient = core.NewConnClient()
 
-	log.Debugf("play server addr:%v starting....", self.PlayUrl)
-	err := self.connectPlayClient.Start(self.PlayUrl, "play")
+	log.Debugf("play server addr:%v starting....", relay.PlayURL)
+	err := relay.connectPlayClient.Start(relay.PlayURL, "play")
 	if err != nil {
-		log.Debugf("connectPlayClient.Start url=%v error", self.PlayUrl)
+		log.Debugf("connectPlayClient.Start url=%v error", relay.PlayURL)
 		return err
 	}
 
-	log.Debugf("publish server addr:%v starting....", self.PublishUrl)
-	err = self.connectPublishClient.Start(self.PublishUrl, "publish")
+	log.Debugf("publish server addr:%v starting....", relay.PublishURL)
+	err = relay.connectPublishClient.Start(relay.PublishURL, "publish")
 	if err != nil {
-		log.Debugf("connectPublishClient.Start url=%v error", self.PublishUrl)
-		self.connectPlayClient.Close(nil)
+		log.Debugf("connectPublishClient.Start url=%v error", relay.PublishURL)
+		relay.connectPlayClient.Close(nil)
 		return err
 	}
 
-	self.startflag = true
-	go self.rcvPlayChunkStream()
-	go self.sendPublishChunkStream()
+	relay.startflag = true
+	go relay.rcvPlayChunkStream()
+	go relay.sendPublishChunkStream()
 
 	return nil
 }
 
-func (self *RtmpRelay) Stop() {
-	if !self.startflag {
-		log.Debugf("The rtmprelay already stoped, playurl=%s, publishurl=%s", self.PlayUrl, self.PublishUrl)
+// Stop stops the relay
+func (relay *RtmpRelay) Stop() {
+	if !relay.startflag {
+		log.Debugf("The rtmprelay already stoped, playurl=%s, publishurl=%s", relay.PlayURL, relay.PublishURL)
 		return
 	}
 
-	self.startflag = false
-	self.sndctrl_chan <- STOP_CTRL
+	relay.startflag = false
+	relay.sndctrlChan <- stopCtrl
 }

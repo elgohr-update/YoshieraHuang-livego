@@ -9,8 +9,8 @@ import (
 	"time"
 )
 
+// EncodeAmf3 encodes amf3 from reader
 // amf3 polymorphic router
-
 func (e *Encoder) EncodeAmf3(w io.Writer, val interface{}) (int, error) {
 	if val == nil {
 		return e.EncodeAmf3Null(w, true)
@@ -27,23 +27,21 @@ func (e *Encoder) EncodeAmf3(w io.Writer, val interface{}) (int, error) {
 	case reflect.Bool:
 		if v.Bool() {
 			return e.EncodeAmf3True(w, true)
-		} else {
-			return e.EncodeAmf3False(w, true)
 		}
+		return e.EncodeAmf3False(w, true)
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32:
 		n := v.Int()
-		if n >= 0 && n <= AMF3_INTEGER_MAX {
+		if n >= 0 && n <= AMF3IntegerMax {
 			return e.EncodeAmf3Integer(w, uint32(n), true)
-		} else {
-			return e.EncodeAmf3Double(w, float64(n), true)
 		}
+		return e.EncodeAmf3Double(w, float64(n), true)
+
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32:
 		n := v.Uint()
-		if n <= AMF3_INTEGER_MAX {
+		if n <= AMF3IntegerMax {
 			return e.EncodeAmf3Integer(w, uint32(n), true)
-		} else {
-			return e.EncodeAmf3Double(w, float64(n), true)
 		}
+		return e.EncodeAmf3Double(w, float64(n), true)
 	case reflect.Int64:
 		return e.EncodeAmf3Double(w, float64(v.Int()), true)
 	case reflect.Uint64:
@@ -80,65 +78,70 @@ func (e *Encoder) EncodeAmf3(w io.Writer, val interface{}) (int, error) {
 	return 0, fmt.Errorf("encode amf3: unsupported type %s", v.Type())
 }
 
+// EncodeAmf3Undefined encodes amf3 undefined
 // marker: 1 byte 0x00
 // no additional data
 func (e *Encoder) EncodeAmf3Undefined(w io.Writer, encodeMarker bool) (n int, err error) {
 	if encodeMarker {
-		if err = WriteMarker(w, AMF3_UNDEFINED_MARKER); err != nil {
+		if err = WriteMarker(w, AMF3UndefinedMarker); err != nil {
 			return
 		}
-		n += 1
+		n++
 	}
 
 	return
 }
 
+// EncodeAmf3Null encodes amf3 null
 // marker: 1 byte 0x01
 // no additional data
 func (e *Encoder) EncodeAmf3Null(w io.Writer, encodeMarker bool) (n int, err error) {
 	if encodeMarker {
-		if err = WriteMarker(w, AMF3_NULL_MARKER); err != nil {
+		if err = WriteMarker(w, AMF3NullMarker); err != nil {
 			return
 		}
-		n += 1
+		n++
 	}
 
 	return
 }
 
+// EncodeAmf3False encodes amf3 false
 // marker: 1 byte 0x02
 // no additional data
 func (e *Encoder) EncodeAmf3False(w io.Writer, encodeMarker bool) (n int, err error) {
 	if encodeMarker {
-		if err = WriteMarker(w, AMF3_FALSE_MARKER); err != nil {
+		if err = WriteMarker(w, AMF3FalseMarker); err != nil {
 			return
 		}
-		n += 1
+		n++
 	}
 
 	return
 }
 
+// EncodeAmf3True encodes amf3 true
 // marker: 1 byte 0x03
 // no additional data
 func (e *Encoder) EncodeAmf3True(w io.Writer, encodeMarker bool) (n int, err error) {
 	if encodeMarker {
-		if err = WriteMarker(w, AMF3_TRUE_MARKER); err != nil {
+		if err = WriteMarker(w, AMF3TrueMarker); err != nil {
 			return
 		}
-		n += 1
+		n++
 	}
 
 	return
 }
 
+// EncodeAmf3Integer encodes amf3 integer
 // marker: 1 byte 0x04
 func (e *Encoder) EncodeAmf3Integer(w io.Writer, val uint32, encodeMarker bool) (n int, err error) {
 	if encodeMarker {
-		if err = WriteMarker(w, AMF3_INTEGER_MARKER); err != nil {
+		if err = WriteMarker(w, AMF3IntegerMarker); err != nil {
 			return
 		}
-		n += 1
+		n++
 	}
 
 	var m int
@@ -151,13 +154,14 @@ func (e *Encoder) EncodeAmf3Integer(w io.Writer, val uint32, encodeMarker bool) 
 	return
 }
 
+// EncodeAmf3Double encodes amf3 double
 // marker: 1 byte 0x05
 func (e *Encoder) EncodeAmf3Double(w io.Writer, val float64, encodeMarker bool) (n int, err error) {
 	if encodeMarker {
-		if err = WriteMarker(w, AMF3_DOUBLE_MARKER); err != nil {
+		if err = WriteMarker(w, AMF3DoubleMarker); err != nil {
 			return
 		}
-		n += 1
+		n++
 	}
 
 	err = binary.Write(w, binary.BigEndian, &val)
@@ -169,16 +173,17 @@ func (e *Encoder) EncodeAmf3Double(w io.Writer, val float64, encodeMarker bool) 
 	return
 }
 
+// EncodeAmf3String encodes amf3 string
 // marker: 1 byte 0x06
 // format:
 // - u29 reference int. if reference, no more data. if not reference,
 //   length value of bytes to read to complete string.
 func (e *Encoder) EncodeAmf3String(w io.Writer, val string, encodeMarker bool) (n int, err error) {
 	if encodeMarker {
-		if err = WriteMarker(w, AMF3_STRING_MARKER); err != nil {
+		if err = WriteMarker(w, AMF3StringMarker); err != nil {
 			return
 		}
-		n += 1
+		n++
 	}
 
 	var m int
@@ -192,22 +197,23 @@ func (e *Encoder) EncodeAmf3String(w io.Writer, val string, encodeMarker bool) (
 	return
 }
 
+// EncodeAmf3Date encodes amf3 date
 // marker: 1 byte 0x08
 // format:
 // - u29 reference int, if reference, no more data
 // - timestamp double
 func (e *Encoder) EncodeAmf3Date(w io.Writer, val time.Time, encodeMarker bool) (n int, err error) {
 	if encodeMarker {
-		if err = WriteMarker(w, AMF3_DATE_MARKER); err != nil {
+		if err = WriteMarker(w, AMF3DateMarker); err != nil {
 			return
 		}
-		n += 1
+		n++
 	}
 
 	if err = WriteMarker(w, 0x01); err != nil {
 		return n, fmt.Errorf("amf3 encode: cannot encode u29 for array: %s", err)
 	}
-	n += 1
+	n++
 
 	u64 := float64(val.Unix()) * 1000.0
 	err = binary.Write(w, binary.BigEndian, &u64)
@@ -219,6 +225,7 @@ func (e *Encoder) EncodeAmf3Date(w io.Writer, val time.Time, encodeMarker bool) 
 	return
 }
 
+// EncodeAmf3Array encodes amf3 array
 // marker: 1 byte 0x09
 // format:
 // - u29 reference int. if reference, no more data.
@@ -226,10 +233,10 @@ func (e *Encoder) EncodeAmf3Date(w io.Writer, val time.Time, encodeMarker bool) 
 // - n values (length of u29)
 func (e *Encoder) EncodeAmf3Array(w io.Writer, val Array, encodeMarker bool) (n int, err error) {
 	if encodeMarker {
-		if err = WriteMarker(w, AMF3_ARRAY_MARKER); err != nil {
+		if err = WriteMarker(w, AMF3ArrayMarker); err != nil {
 			return
 		}
-		n += 1
+		n++
 	}
 
 	var m int
@@ -259,14 +266,15 @@ func (e *Encoder) EncodeAmf3Array(w io.Writer, val Array, encodeMarker bool) (n 
 	return
 }
 
+// EncodeAmf3Object encodes amf3 object
 // marker: 1 byte 0x0a
 // format: ugh
 func (e *Encoder) EncodeAmf3Object(w io.Writer, val TypedObject, encodeMarker bool) (n int, err error) {
 	if encodeMarker {
-		if err = WriteMarker(w, AMF3_OBJECT_MARKER); err != nil {
+		if err = WriteMarker(w, AMF3ObjectMarker); err != nil {
 			return
 		}
-		n += 1
+		n++
 	}
 
 	m := 0
@@ -276,7 +284,7 @@ func (e *Encoder) EncodeAmf3Object(w io.Writer, val TypedObject, encodeMarker bo
 	trait.Dynamic = false
 	trait.Externalizable = false
 
-	for k, _ := range val.Object {
+	for k := range val.Object {
 		trait.Properties = append(trait.Properties, k)
 	}
 
@@ -360,16 +368,17 @@ func (e *Encoder) EncodeAmf3Object(w io.Writer, val TypedObject, encodeMarker bo
 	return
 }
 
+// EncodeAmf3ByteArray encodes amf3 byte array
 // marker: 1 byte 0x0c
 // format:
 // - u29 reference int. if reference, no more data. if not reference,
 //   length value of bytes to read .
 func (e *Encoder) EncodeAmf3ByteArray(w io.Writer, val []byte, encodeMarker bool) (n int, err error) {
 	if encodeMarker {
-		if err = WriteMarker(w, AMF3_BYTEARRAY_MARKER); err != nil {
+		if err = WriteMarker(w, AMF3BytearrayMarker); err != nil {
 			return
 		}
-		n += 1
+		n++
 	}
 
 	var m int
@@ -416,7 +425,7 @@ func (e *Encoder) encodeAmf3Uint29(w io.Writer, val uint32) (n int, err error) {
 	if val <= 0x0000007F {
 		err = WriteByte(w, byte(val))
 		if err == nil {
-			n += 1
+			n++
 		}
 	} else if val <= 0x00003FFF {
 		n, err = w.Write([]byte{byte(val>>7 | 0x80), byte(val & 0x7F)})

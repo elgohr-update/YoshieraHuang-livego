@@ -5,60 +5,96 @@ import (
 	"io"
 )
 
+// Tag definitions
 const (
-	TAG_AUDIO          = 8
-	TAG_VIDEO          = 9
-	TAG_SCRIPTDATAAMF0 = 18
-	TAG_SCRIPTDATAAMF3 = 0xf
+	// TagAudio denotes the audio tag
+	TagAudio = 8
+	// TagVideo denotes the video tag
+	TagVideo = 9
+	// TagScriptDataAMF0 denotes the script data AMF0 tag
+	TagScriptDataAMF0 = 18
+	// TagScriptDataAMF3 denotes the script data AMF3 tag
+	TagScriptDataAMF3 = 0xf
 )
 
+// Metadata definitions
 const (
-	MetadatAMF0  = 0x12
+	// MetadataAMF0 denotes the metadata of AMF0
+	MetadataAMF0 = 0x12
+	// MetadataAMF3 denotes the metadata of AMF3
 	MetadataAMF3 = 0xf
 )
 
+// Sound definitions
 const (
-	SOUND_MP3                   = 2
-	SOUND_NELLYMOSER_16KHZ_MONO = 4
-	SOUND_NELLYMOSER_8KHZ_MONO  = 5
-	SOUND_NELLYMOSER            = 6
-	SOUND_ALAW                  = 7
-	SOUND_MULAW                 = 8
-	SOUND_AAC                   = 10
-	SOUND_SPEEX                 = 11
+	// SoundMP3 denotes the codec of sound is MP3
+	SoundMP3 = 2
+	// SoundNellymoser16kHzMono denotes the codec of sound is Nellymoser 16kHz mono
+	SoundNellymoser16kHzMono = 4
+	// SoundNellymoser8kHzMono denotes the codec of sound is Nellymoser 8kHz mono
+	SoundNellymoser8kHzMono = 5
+	// SoundNellymoser denotes the codec of sound is Nellymoser
+	SoundNellymoser = 6
+	// SoundALaw denotes the codec of sound is A-law
+	SoundALaw = 7
+	// SoundMuLaw denotes the codec of sound is Mu-law
+	SoundMuLaw = 8
+	// SoundAAC denotes the codec of sound is acc
+	SoundAAC = 10
+	// SoundSpeex denotes the codec of sound is speex
+	SoundSpeex = 11
 
-	SOUND_5_5Khz = 0
-	SOUND_11Khz  = 1
-	SOUND_22Khz  = 2
-	SOUND_44Khz  = 3
+	// Sound55kHz denotes the sampling of sound is 5 5kHz
+	Sound55kHz = 0
+	// Sound11kHz denotes the sampling of sound is 11kHz
+	Sound11kHz = 1
+	// Sound22kHz denotes the sampling of sound is 22kHz
+	Sound22kHz = 2
+	// Sound44kHz denotes the sampling of sound is 44kHz
+	Sound44kHz = 3
 
-	SOUND_8BIT  = 0
-	SOUND_16BIT = 1
+	// Sound8Bit denotes sound is 8bit
+	Sound8Bit = 0
+	// Sound16Bit denotes sound is 16bit
+	Sound16Bit = 1
 
-	SOUND_MONO   = 0
-	SOUND_STEREO = 1
+	// SoundMono denotes sound is mono
+	SoundMono = 0
+	// SoundStereo denotes sound is stereo
+	SoundStereo = 1
 
-	AAC_SEQHDR = 0
-	AAC_RAW    = 1
+	// AACSeqHeader denotes the AAC Sequence Header
+	AACSeqHeader = 0
+	// AACRaw denotes the AAC raw
+	AACRaw = 1
 )
 
+// H.264/AVC definitions
 const (
-	AVC_SEQHDR = 0
-	AVC_NALU   = 1
-	AVC_EOS    = 2
+	// AVCSeqHeader denotes the AVC Sequence Header
+	AVCSeqHeader = 0
+	// AVCNalu denotes the AVC NALU
+	AVCNalu = 1
+	// AVCEos denotes the AVC EOS
+	AVCEos = 2
 
-	FRAME_KEY   = 1
-	FRAME_INTER = 2
+	// FrameKey denotes the frame key
+	FrameKey = 1
+	// FrameInter denotes the frame inter
+	FrameInter = 2
 
-	VIDEO_H264 = 7
+	// VideoH264 denotes the video is H.264
+	VideoH264 = 7
 )
 
 var (
+	// PUBLISH denotes publish
 	PUBLISH = "publish"
-	PLAY    = "play"
+	// PLAY denotes play
+	PLAY = "play"
 )
 
-// Header can be converted to AudioHeaderInfo or VideoHeaderInfo
+// Packet is the av packet
 type Packet struct {
 	IsAudio    bool
 	IsVideo    bool
@@ -69,15 +105,18 @@ type Packet struct {
 	Data       []byte
 }
 
+// PacketHeader can be converted to AudioHeaderInfo or VideoHeaderInfo
 type PacketHeader interface {
 }
 
+// AudioPacketHeader is the packet header of audio
 type AudioPacketHeader interface {
 	PacketHeader
 	SoundFormat() uint8
 	AACPacketType() uint8
 }
 
+// VideoPacketHeader is the packet header of video
 type VideoPacketHeader interface {
 	PacketHeader
 	IsKeyFrame() bool
@@ -86,45 +125,58 @@ type VideoPacketHeader interface {
 	CompositionTime() int32
 }
 
+// Demuxer demux the packet
 type Demuxer interface {
 	Demux(*Packet) (ret *Packet, err error)
 }
 
+// Muxer mux the packet to Writer
 type Muxer interface {
 	Mux(*Packet, io.Writer) error
 }
 
+// SampleRater can return sample rate
 type SampleRater interface {
 	SampleRate() (int, error)
 }
 
+// CodecParser parse the packet
 type CodecParser interface {
 	SampleRater
 	Parse(*Packet, io.Writer) error
 }
 
+// GetWriter get WriteCloser from Info
 type GetWriter interface {
-	GetWriter(Info) WriteCloser
+	Writer(Info) WriteCloser
 }
 
+// Handler handle reader and writer
 type Handler interface {
 	HandleReader(ReadCloser)
 	HandleWriter(WriteCloser)
 }
 
+// Aliver can return if this is alive
 type Aliver interface {
+	// Alive return if this is alive
 	Alive() bool
 }
 
+// Closer returns Info and can close
 type Closer interface {
+	// Info return the info
 	Info() Info
+	// Close close current
 	Close(error)
 }
 
-type CalcTime interface {
+// CalcTimer calculate base timestamp
+type CalcTimer interface {
 	CalcBaseTimestamp()
 }
 
+// Info is the information
 type Info struct {
 	Key   string
 	URL   string
@@ -132,24 +184,28 @@ type Info struct {
 	Inter bool
 }
 
+// IsInterval returns if this is interval
 func (info Info) IsInterval() bool {
 	return info.Inter
 }
 
+// String returns the representation string
 func (info Info) String() string {
 	return fmt.Sprintf("<key: %s, URL: %s, UID: %s, Inter: %v>",
 		info.Key, info.URL, info.UID, info.Inter)
 }
 
+// ReadCloser read to packet
 type ReadCloser interface {
 	Closer
 	Aliver
 	Read(*Packet) error
 }
 
+// WriteCloser write to packet
 type WriteCloser interface {
 	Closer
 	Aliver
-	CalcTime
+	CalcTimer
 	Write(*Packet) error
 }

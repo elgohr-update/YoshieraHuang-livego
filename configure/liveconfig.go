@@ -24,6 +24,7 @@ import (
 }
 */
 
+// Application is application, the basic unit of push and pull
 type Application struct {
 	Appname    string   `mapstructure:"appname"`
 	Live       bool     `mapstructure:"live"`
@@ -31,12 +32,16 @@ type Application struct {
 	StaticPush []string `mapstructure:"static_push"`
 }
 
+// Applications is a collection of Application
 type Applications []Application
 
+// JWT is used fro jwt authentication
 type JWT struct {
 	Secret    string `mapstructure:"secret"`
 	Algorithm string `mapstructure:"algorithm"`
 }
+
+// ServerCfg is the configuration of server
 type ServerCfg struct {
 	Level           string       `mapstructure:"level"`
 	ConfigFile      string       `mapstructure:"config_file"`
@@ -55,7 +60,7 @@ type ServerCfg struct {
 	Server          Applications `mapstructure:"server"`
 }
 
-// default config
+// defaultConfig is the default configuration
 var defaultConf = ServerCfg{
 	ConfigFile:      "livego.yaml",
 	RTMPAddr:        ":1935",
@@ -74,6 +79,7 @@ var defaultConf = ServerCfg{
 	}},
 }
 
+// Config is the configuration of this livego
 var Config = viper.New()
 
 func initLog() {
@@ -132,6 +138,7 @@ func init() {
 	log.Debugf("Current configurations: \n%# v", pretty.Formatter(c))
 }
 
+// CheckAppName check the appname is still live
 func CheckAppName(appname string) bool {
 	apps := Applications{}
 	Config.UnmarshalKey("server", &apps)
@@ -143,16 +150,16 @@ func CheckAppName(appname string) bool {
 	return false
 }
 
-func GetStaticPushUrlList(appname string) ([]string, bool) {
+// GetStaticPushURLList get static push url list from config
+func GetStaticPushURLList(appname string) ([]string, bool) {
 	apps := Applications{}
 	Config.UnmarshalKey("server", &apps)
 	for _, app := range apps {
 		if (app.Appname == appname) && app.Live {
 			if len(app.StaticPush) > 0 {
 				return app.StaticPush, true
-			} else {
-				return nil, false
 			}
+			return nil, false
 		}
 	}
 	return nil, false

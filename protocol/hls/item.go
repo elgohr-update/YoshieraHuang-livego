@@ -1,5 +1,6 @@
 package hls
 
+// TSItem is the ts item
 type TSItem struct {
 	Name     string
 	SeqNum   int
@@ -7,6 +8,7 @@ type TSItem struct {
 	Data     []byte
 }
 
+// NewTSItem return a TSItem
 func NewTSItem(name string, duration, seqNum int, b []byte) TSItem {
 	var item TSItem
 	item.Name = name

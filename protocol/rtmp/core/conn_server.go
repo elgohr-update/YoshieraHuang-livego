@@ -18,7 +18,8 @@ var (
 )
 
 var (
-	ErrReq = fmt.Errorf("req error")
+	// ErrReq means request error
+	ErrReq = fmt.Errorf("request error")
 )
 
 var (
@@ -32,49 +33,54 @@ var (
 	cmdPlay          = "play"
 )
 
+// ConnectInfo is the connection information
 type ConnectInfo struct {
 	App            string `amf:"app" json:"app"`
 	Flashver       string `amf:"flashVer" json:"flashVer"`
-	SwfUrl         string `amf:"swfUrl" json:"swfUrl"`
-	TcUrl          string `amf:"tcUrl" json:"tcUrl"`
+	SwfURL         string `amf:"swfUrl" json:"swfUrl"`
+	TcURL          string `amf:"tcUrl" json:"tcUrl"`
 	Fpad           bool   `amf:"fpad" json:"fpad"`
 	AudioCodecs    int    `amf:"audioCodecs" json:"audioCodecs"`
 	VideoCodecs    int    `amf:"videoCodecs" json:"videoCodecs"`
 	VideoFunction  int    `amf:"videoFunction" json:"videoFunction"`
-	PageUrl        string `amf:"pageUrl" json:"pageUrl"`
+	PageURL        string `amf:"pageUrl" json:"pageUrl"`
 	ObjectEncoding int    `amf:"objectEncoding" json:"objectEncoding"`
 }
 
-type ConnectResp struct {
-	FMSVer       string `amf:"fmsVer"`
-	Capabilities int    `amf:"capabilities"`
-}
+// type ConnectResp struct {
+// 	FMSVer       string `amf:"fmsVer"`
+// 	Capabilities int    `amf:"capabilities"`
+// }
 
-type ConnectEvent struct {
-	Level          string `amf:"level"`
-	Code           string `amf:"code"`
-	Description    string `amf:"description"`
-	ObjectEncoding int    `amf:"objectEncoding"`
-}
+// type ConnectEvent struct {
+// 	Level          string `amf:"level"`
+// 	Code           string `amf:"code"`
+// 	Description    string `amf:"description"`
+// 	ObjectEncoding int    `amf:"objectEncoding"`
+// }
 
+// PublishInfo is the publish information
 type PublishInfo struct {
 	Name string
 	Type string
 }
 
+// ConnServer is the connection server
 type ConnServer struct {
+	ConnInfo    ConnectInfo
+	PublishInfo PublishInfo
+
 	done          bool
 	streamID      int
 	isPublisher   bool
 	conn          *Conn
 	transactionID int
-	ConnInfo      ConnectInfo
-	PublishInfo   PublishInfo
 	decoder       *amf.Decoder
 	encoder       *amf.Encoder
 	bytesw        *bytes.Buffer
 }
 
+// NewConnServer returns a new connection server
 func NewConnServer(conn *Conn) *ConnServer {
 	return &ConnServer{
 		conn:     conn,
@@ -88,7 +94,7 @@ func NewConnServer(conn *Conn) *ConnServer {
 func (connServer *ConnServer) writeMsg(csid, streamID uint32, args ...interface{}) error {
 	connServer.bytesw.Reset()
 	for _, v := range args {
-		if _, err := connServer.encoder.Encode(connServer.bytesw, v, amf.AMF0); err != nil {
+		if _, err := connServer.encoder.Encode(connServer.bytesw, amf.AMF0, v); err != nil {
 			return err
 		}
 	}
@@ -125,7 +131,7 @@ func (connServer *ConnServer) connect(vs []interface{}) error {
 				connServer.ConnInfo.Flashver = flashVer.(string)
 			}
 			if tcurl, ok := obimap["tcUrl"]; ok {
-				connServer.ConnInfo.TcUrl = tcurl.(string)
+				connServer.ConnInfo.TcURL = tcurl.(string)
 			}
 			if encoding, ok := obimap["objectEncoding"]; ok {
 				connServer.ConnInfo.ObjectEncoding = int(encoding.(float64))
@@ -303,6 +309,7 @@ func (connServer *ConnServer) handleCmdMsg(c *ChunkStream) error {
 	return nil
 }
 
+// ReadMsg reads message from connection
 func (connServer *ConnServer) ReadMsg() error {
 	var c ChunkStream
 	for {
@@ -322,13 +329,14 @@ func (connServer *ConnServer) ReadMsg() error {
 	return nil
 }
 
+// IsPublisher returns if this is publisher
 func (connServer *ConnServer) IsPublisher() bool {
 	return connServer.isPublisher
 }
 
 func (connServer *ConnServer) Write(c ChunkStream) error {
-	if c.TypeID == av.TAG_SCRIPTDATAAMF0 ||
-		c.TypeID == av.TAG_SCRIPTDATAAMF3 {
+	if c.TypeID == av.TagScriptDataAMF0 ||
+		c.TypeID == av.TagScriptDataAMF3 {
 		var err error
 		if c.Data, err = amf.MetaDataReform(c.Data, amf.DEL); err != nil {
 			return err
@@ -338,6 +346,7 @@ func (connServer *ConnServer) Write(c ChunkStream) error {
 	return connServer.conn.Write(&c)
 }
 
+// Flush does flushing
 func (connServer *ConnServer) Flush() error {
 	return connServer.conn.Flush()
 }
@@ -346,13 +355,15 @@ func (connServer *ConnServer) Read(c *ChunkStream) (err error) {
 	return connServer.conn.Read(c)
 }
 
+// GetInfo gets information
 func (connServer *ConnServer) GetInfo() (app string, name string, url string) {
 	app = connServer.ConnInfo.App
 	name = connServer.PublishInfo.Name
-	url = connServer.ConnInfo.TcUrl + "/" + connServer.PublishInfo.Name
+	url = connServer.ConnInfo.TcURL + "/" + connServer.PublishInfo.Name
 	return
 }
 
+// Close closes the server
 func (connServer *ConnServer) Close(err error) {
 	connServer.conn.Close()
 }

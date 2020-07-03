@@ -26,9 +26,11 @@ var (
 )
 
 var (
-	ErrFail = fmt.Errorf("respone err")
+	// ErrResponse means response error
+	ErrResponse = fmt.Errorf("response err")
 )
 
+// ConnClient is the connection client
 type ConnClient struct {
 	done       bool
 	transID    int
@@ -45,6 +47,7 @@ type ConnClient struct {
 	bytesw     *bytes.Buffer
 }
 
+// NewConnClient returns a ConnClient
 func NewConnClient() *ConnClient {
 	return &ConnClient{
 		transID: 1,
@@ -54,6 +57,7 @@ func NewConnClient() *ConnClient {
 	}
 }
 
+// DecodeBatch decodes from reader in batch
 func (connClient *ConnClient) DecodeBatch(r io.Reader, ver amf.Version) (ret []interface{}, err error) {
 	vs, err := connClient.decoder.DecodeBatch(r, ver)
 	return vs, err
@@ -86,7 +90,7 @@ func (connClient *ConnClient) readRespMsg() error {
 
 					case cmdPublish:
 						if v.(string) != onStatus {
-							return ErrFail
+							return ErrResponse
 						}
 					}
 				case float64:
@@ -96,14 +100,14 @@ func (connClient *ConnClient) readRespMsg() error {
 
 						if k == 1 {
 							if id != connClient.transID {
-								return ErrFail
+								return ErrResponse
 							}
 						} else if k == 3 {
 							connClient.streamid = uint32(id)
 						}
 					case cmdPublish:
 						if int(v.(float64)) != 0 {
-							return ErrFail
+							return ErrResponse
 						}
 					}
 				case amf.Object:
@@ -112,12 +116,12 @@ func (connClient *ConnClient) readRespMsg() error {
 					case cmdConnect:
 						code, ok := objmap["code"]
 						if ok && code.(string) != connectSuccess {
-							return ErrFail
+							return ErrResponse
 						}
 					case cmdPublish:
 						code, ok := objmap["code"]
 						if ok && code.(string) != publishStart {
-							return ErrFail
+							return ErrResponse
 						}
 					}
 				}
@@ -131,7 +135,7 @@ func (connClient *ConnClient) readRespMsg() error {
 func (connClient *ConnClient) writeMsg(args ...interface{}) error {
 	connClient.bytesw.Reset()
 	for _, v := range args {
-		if _, err := connClient.encoder.Encode(connClient.bytesw, v, amf.AMF0); err != nil {
+		if _, err := connClient.encoder.Encode(connClient.bytesw, amf.AMF0, v); err != nil {
 			return err
 		}
 	}
@@ -179,7 +183,7 @@ func (connClient *ConnClient) writeCreateStreamMsg() error {
 			return err
 		}
 
-		if err == ErrFail {
+		if err == ErrResponse {
 			log.Debugf("writeCreateStreamMsg readRespMsg err=%v", err)
 			return err
 		}
@@ -208,6 +212,7 @@ func (connClient *ConnClient) writePlayMsg() error {
 	return connClient.readRespMsg()
 }
 
+// Start starts the connection
 func (connClient *ConnClient) Start(url string, method string) error {
 	u, err := neturl.Parse(url)
 	if err != nil {
@@ -296,8 +301,8 @@ func (connClient *ConnClient) Start(url string, method string) error {
 }
 
 func (connClient *ConnClient) Write(c ChunkStream) error {
-	if c.TypeID == av.TAG_SCRIPTDATAAMF0 ||
-		c.TypeID == av.TAG_SCRIPTDATAAMF3 {
+	if c.TypeID == av.TagScriptDataAMF0 ||
+		c.TypeID == av.TagScriptDataAMF3 {
 		var err error
 		if c.Data, err = amf.MetaDataReform(c.Data, amf.ADD); err != nil {
 			return err
@@ -307,6 +312,7 @@ func (connClient *ConnClient) Write(c ChunkStream) error {
 	return connClient.conn.Write(&c)
 }
 
+// Flush do flushing
 func (connClient *ConnClient) Flush() error {
 	return connClient.conn.Flush()
 }
@@ -315,6 +321,7 @@ func (connClient *ConnClient) Read(c *ChunkStream) (err error) {
 	return connClient.conn.Read(c)
 }
 
+// GetInfo get informations
 func (connClient *ConnClient) GetInfo() (app string, name string, url string) {
 	app = connClient.app
 	name = connClient.title
@@ -322,10 +329,12 @@ func (connClient *ConnClient) GetInfo() (app string, name string, url string) {
 	return
 }
 
-func (connClient *ConnClient) GetStreamId() uint32 {
+// StreamID returns the streamID
+func (connClient *ConnClient) StreamID() uint32 {
 	return connClient.streamid
 }
 
+// Close closes thie ConnClient
 func (connClient *ConnClient) Close(err error) {
 	connClient.conn.Close()
 }

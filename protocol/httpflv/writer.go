@@ -18,10 +18,11 @@ const (
 	maxQueueNum = 1024
 )
 
-type FLVWriter struct {
-	av.RWBase
+// Writer is a http flv writer
+type Writer struct {
+	av.RWBaser
 
-	UID             string
+	uid             string
 	app, title, url string
 	buf             []byte
 	closed          bool
@@ -30,11 +31,12 @@ type FLVWriter struct {
 	packetQueue     chan *av.Packet
 }
 
-func NewFLVWriter(app, title, url string, ctx http.ResponseWriter) *FLVWriter {
-	ret := &FLVWriter{
-		RWBase: av.NewRWBase(time.Second * 10),
+// NewWriter returns a FLV writer
+func NewWriter(app, title, url string, ctx http.ResponseWriter) *Writer {
+	ret := &Writer{
+		RWBaser: av.NewRWBase(time.Second * 10),
 
-		UID:         uid.NewId(),
+		uid:         uid.NewID(),
 		app:         app,
 		title:       title,
 		url:         url,
@@ -57,7 +59,8 @@ func NewFLVWriter(app, title, url string, ctx http.ResponseWriter) *FLVWriter {
 	return ret
 }
 
-func (flvWriter *FLVWriter) DropPacket(pktQue chan *av.Packet, info av.Info) {
+// DropPacket drops packets due to queue max
+func (flvWriter *Writer) DropPacket(pktQue chan *av.Packet, info av.Info) {
 	log.Warningf("[%v] packet queue max!!!", info)
 	for i := 0; i < maxQueueNum-84; i++ {
 		tmpPkt, ok := <-pktQue
@@ -84,7 +87,8 @@ func (flvWriter *FLVWriter) DropPacket(pktQue chan *av.Packet, info av.Info) {
 	log.Debug("packet queue len: ", len(pktQue))
 }
 
-func (flvWriter *FLVWriter) Write(p *av.Packet) (err error) {
+// Write writes packet
+func (flvWriter *Writer) Write(p *av.Packet) (err error) {
 	err = nil
 	if flvWriter.closed {
 		err = fmt.Errorf("flvwrite source closed")
@@ -106,29 +110,30 @@ func (flvWriter *FLVWriter) Write(p *av.Packet) (err error) {
 	return
 }
 
-func (flvWriter *FLVWriter) SendPacket() error {
+// SendPacket sends packet
+func (flvWriter *Writer) SendPacket() error {
 	for {
 		p, ok := <-flvWriter.packetQueue
 		if ok {
 			flvWriter.SetPreTime()
 			h := flvWriter.buf[:headerLen]
-			typeID := av.TAG_VIDEO
+			typeID := av.TagVideo
 			if !p.IsVideo {
 				if p.IsMetadata {
 					var err error
-					typeID = av.TAG_SCRIPTDATAAMF0
+					typeID = av.TagScriptDataAMF0
 					p.Data, err = amf.MetaDataReform(p.Data, amf.DEL)
 					if err != nil {
 						return err
 					}
 				} else {
-					typeID = av.TAG_AUDIO
+					typeID = av.TagAudio
 				}
 			}
 			dataLen := len(p.Data)
 			timestamp := p.TimeStamp
-			timestamp += flvWriter.BaseTimeStamp()
-			flvWriter.RecTimeStamp(timestamp, uint32(typeID))
+			timestamp += flvWriter.BaseTimestamp()
+			flvWriter.RecTimestamp(timestamp, uint32(typeID))
 
 			preDataLen := dataLen + headerLen
 			timestampbase := timestamp & 0xffffff
@@ -158,14 +163,16 @@ func (flvWriter *FLVWriter) SendPacket() error {
 	}
 }
 
-func (flvWriter *FLVWriter) Wait() {
+// Wait waits for writer closing
+func (flvWriter *Writer) Wait() {
 	select {
 	case <-flvWriter.closedChan:
 		return
 	}
 }
 
-func (flvWriter *FLVWriter) Close(error) {
+// Close closes the writer
+func (flvWriter *Writer) Close(error) {
 	log.Debug("http flv closed")
 	if !flvWriter.closed {
 		close(flvWriter.packetQueue)
@@ -174,8 +181,9 @@ func (flvWriter *FLVWriter) Close(error) {
 	flvWriter.closed = true
 }
 
-func (flvWriter *FLVWriter) Info() (ret av.Info) {
-	ret.UID = flvWriter.UID
+// Info returns the information
+func (flvWriter *Writer) Info() (ret av.Info) {
+	ret.UID = flvWriter.uid
 	ret.URL = flvWriter.url
 	ret.Key = flvWriter.app + "/" + flvWriter.title
 	ret.Inter = true

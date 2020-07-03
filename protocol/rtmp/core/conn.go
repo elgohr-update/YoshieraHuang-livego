@@ -12,13 +12,14 @@ import (
 const (
 	_ = iota
 	idSetChunkSize
-	idAbortMessage
+	idAbortMessages
 	idAck
 	idUserControlMessages
 	idWindowAckSize
 	idSetPeerBandwidth
 )
 
+// Conn is the rtmp connection
 type Conn struct {
 	net.Conn
 	chunkSize           uint32
@@ -32,6 +33,7 @@ type Conn struct {
 	chunks              map[uint32]ChunkStream
 }
 
+// NewConn returns a rtmp connection
 func NewConn(c net.Conn, bufferSize int) *Conn {
 	return &Conn{
 		Conn:                c,
@@ -45,6 +47,7 @@ func NewConn(c net.Conn, bufferSize int) *Conn {
 	}
 }
 
+// Read reads from connection to ChunckStream
 func (conn *Conn) Read(c *ChunkStream) error {
 	for {
 		h, _ := conn.rw.ReadUintBE(1)
@@ -86,38 +89,47 @@ func (conn *Conn) Write(c *ChunkStream) error {
 	return c.writeChunk(conn.rw, int(conn.chunkSize))
 }
 
+// Flush flushes unwritten bytes
 func (conn *Conn) Flush() error {
 	return conn.rw.Flush()
 }
 
+// Close closes the connection
 func (conn *Conn) Close() error {
 	return conn.Conn.Close()
 }
 
+// RemoteAddr returns the remote address
 func (conn *Conn) RemoteAddr() net.Addr {
 	return conn.Conn.RemoteAddr()
 }
 
+// LocalAddr returns local address
 func (conn *Conn) LocalAddr() net.Addr {
 	return conn.Conn.LocalAddr()
 }
 
+// SetDeadline set the deadline of connection
 func (conn *Conn) SetDeadline(t time.Time) error {
 	return conn.Conn.SetDeadline(t)
 }
 
+// NewAck returns an ack
 func (conn *Conn) NewAck(size uint32) ChunkStream {
 	return initControlMsg(idAck, 4, size)
 }
 
+// NewSetChunkSize returns a command to set chunk with specific size
 func (conn *Conn) NewSetChunkSize(size uint32) ChunkStream {
 	return initControlMsg(idSetChunkSize, 4, size)
 }
 
+// NewWindowAckSize returns a window ack with specific size
 func (conn *Conn) NewWindowAckSize(size uint32) ChunkStream {
 	return initControlMsg(idWindowAckSize, 4, size)
 }
 
+// NewSetPeerBandwidth returns a command to set peer bandwidth
 func (conn *Conn) NewSetPeerBandwidth(size uint32) ChunkStream {
 	ret := initControlMsg(idSetPeerBandwidth, 5, size)
 	ret.Data[4] = 2
@@ -190,6 +202,7 @@ func (conn *Conn) userControlMsg(eventType, buflen uint32) ChunkStream {
 	return ret
 }
 
+// SetBegin sets begin message
 func (conn *Conn) SetBegin() {
 	ret := conn.userControlMsg(streamBegin, 4)
 	for i := 0; i < 4; i++ {
@@ -198,6 +211,7 @@ func (conn *Conn) SetBegin() {
 	conn.Write(&ret)
 }
 
+// SetRecorded sets recorded message
 func (conn *Conn) SetRecorded() {
 	ret := conn.userControlMsg(streamIsRecorded, 4)
 	for i := 0; i < 4; i++ {

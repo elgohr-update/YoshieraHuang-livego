@@ -2,7 +2,6 @@ package h264
 
 import (
 	"bytes"
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -47,7 +46,7 @@ func TestH264NalueSizeException(t *testing.T) {
 	d := NewParser()
 	w := bytes.NewBuffer(nil)
 	err := d.Parse(nalu, false, w)
-	at.Equal(err, fmt.Errorf("video data not match"))
+	at.Equal(err, ErrInvalidVideoData)
 }
 
 func TestH264Mp4Demux(t *testing.T) {
@@ -76,7 +75,7 @@ func TestH264Mp4DemuxException1(t *testing.T) {
 	w := bytes.NewBuffer(nil)
 
 	err := d.Parse(nalu, false, w)
-	at.Equal(err, naluBodyLenError)
+	at.Equal(err, ErrNaluBodyLen)
 }
 
 func TestH264Mp4DemuxException2(t *testing.T) {
@@ -88,5 +87,5 @@ func TestH264Mp4DemuxException2(t *testing.T) {
 	d := NewParser()
 	w := bytes.NewBuffer(nil)
 	err := d.Parse(nalu, false, w)
-	at.Equal(err, naluBodyLenError)
+	at.Equal(err, ErrNaluBodyLen)
 }
