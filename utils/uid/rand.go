@@ -1,6 +1,14 @@
 package uid
 
-import "math/rand"
+import (
+	"math/rand"
+	"time"
+)
+
+func init() {
+	// rand.Intn is pseudo-random, set seed to make it vary
+	rand.Seed(time.Now().UnixNano())
+}
 
 var letterRunes = []rune("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 

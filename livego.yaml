@@ -15,6 +15,7 @@
 
 # # API Options
 # api_addr: ":8090"
+level: "debug"
 server:
 - appname: live
   live: true
